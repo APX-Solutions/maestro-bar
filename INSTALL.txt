@@ -1,0 +1,93 @@
+Maestro Bar — install and upgrade
+=================================
+
+Send the person MaestroBar.dmg (24 MB). They save it to Downloads or Desktop,
+open Terminal, paste ONE line and press return.
+
+There are two lines: one for a machine that has never had it, one for a
+machine that already does. The difference matters — the upgrade line rescues
+their API token first.
+
+
+NEW INSTALL
+-----------
+
+────────────────────────────────────────────────────────────────────────
+D=$(find "$HOME/Downloads" "$HOME/Desktop" -maxdepth 1 -name "MaestroBar*.dmg" -exec stat -f "%m %N" {} \; 2>/dev/null | sort -rn | head -1 | cut -d" " -f2-); [ -n "$D" ] || { echo "STOP: no MaestroBar dmg found in Downloads or Desktop"; exit 1; }; find /Volumes -maxdepth 1 -name "Maestro Bar*" 2>/dev/null | while read -r v; do hdiutil detach "$v" -force -quiet 2>/dev/null; done; M=$(hdiutil attach "$D" -nobrowse -mountrandom /tmp 2>/dev/null | grep -o '/private/tmp/dmg\.[A-Za-z0-9]*' | tail -1); [ -n "$M" ] && [ -d "$M/MaestroBar.app" ] || { echo "STOP: could not read the dmg. Close any Maestro Bar window in Finder, or download it again."; [ -n "$M" ] && hdiutil detach "$M" -quiet 2>/dev/null; exit 1; }; [ -x "$M/MaestroBar.app/Contents/MacOS/ffmpeg" ] || { echo "STOP: '$D' is an OLD version. Delete every MaestroBar.dmg from Downloads and Desktop, download the new one, then run this again. Nothing was changed."; hdiutil detach "$M" -quiet 2>/dev/null; exit 1; }; mkdir -p ~/.maestro; T=$(security find-generic-password -s maestro-token -w 2>/dev/null); [ -n "$T" ] && { printf %s "$T" > ~/.maestro/token; chmod 600 ~/.maestro/token; }; pkill -x MaestroBar 2>/dev/null; sleep 2; rm -rf /Applications/MaestroBar.app && cp -R "$M/MaestroBar.app" /Applications/ && hdiutil detach "$M" -quiet && xattr -dr com.apple.quarantine /Applications/MaestroBar.app && tccutil reset ScreenCapture com.carbonbox.maestrobar >/dev/null 2>&1; V=$(/Applications/MaestroBar.app/Contents/MacOS/ffmpeg -hide_banner -version 2>/dev/null | head -1); [ -n "$V" ] || { echo "STOP: the installed app has no ffmpeg - something went wrong"; exit 1; }; echo "$V"; open /Applications/MaestroBar.app && echo "OK - installed. Click the M, Record screen + audio, allow the prompt, then QUIT and REOPEN the app."
+────────────────────────────────────────────────────────────────────────
+
+
+NOT AN ADMIN
+------------
+
+Same lines, into their own Applications folder. Replace every
+/Applications with ~/Applications, and add `mkdir -p ~/Applications &&` at
+the front.
+
+
+WHAT THE LINES DO, AND WHY EACH PART IS THERE
+---------------------------------------------
+
+1. (Upgrade only) Copies the API token out of the Keychain into
+   ~/.maestro/token, mode 600. This runs FIRST, while the old app still
+   works. A Keychain item is bound to the app's code signature, and the new
+   build has a different one, so macOS may treat it as a different app and
+   re-prompt or refuse. With the token in a file, send.sh reads that first
+   and uploads stop depending on the Keychain. Skipped silently if there is
+   no token to copy.
+
+2. (Upgrade only) Quits the running app. Replacing a running bundle is how
+   they get corrupted. pkill backs up the polite osascript quit.
+
+3. Picks the NEWEST dmg present — `ls -t`, not `ls`. Plain `ls` sorts by
+   path, so an old MaestroBar.dmg on the Desktop would beat the new one in
+   Downloads and they would "upgrade" to the version they already had, with
+   no error to show for it.
+
+4. Replaces the app, unmounts, and strips the quarantine flag macOS puts on
+   anything that arrived from someone else. That flag is the only reason
+   the drag-and-drop route shows a scary blocked dialog; removing it is
+   what the "Open Anyway" button does, one click deeper in Settings.
+
+5. Runs the bundled ffmpeg and prints its version. This is the proof the
+   install did the thing it exists to do — audio recording no longer needs
+   Homebrew. If this prints nothing, the rest did not matter.
+
+
+AFTERWARDS
+----------
+
+macOS asks for Microphone again on an upgrade, because the permission is
+keyed to the signature and the signature changed. Allow it. If a Keychain
+dialog appears, choose Always Allow.
+
+Then record five seconds and confirm the file is not 0 bytes:
+
+    ls -la ~/Recordings
+
+Settings (~/.config/maestro/bar.json), recordings and the login item all
+survive an upgrade — none of them live inside the app.
+
+Homebrew is not needed for anything any more. The app carries its own static
+ffmpeg. If they happen to have their own it is ignored, so their version
+cannot drift out from under them.
+
+
+IF THEY HAVE TWO COPIES OF THE APP
+----------------------------------
+
+The line only replaces one location. Check first:
+
+    ls -lad /Applications/MaestroBar.app ~/Applications/MaestroBar.app 2>/dev/null; grep -o '/[^<]*MaestroBar' ~/Library/LaunchAgents/com.carbonbox.maestrobar.plist 2>/dev/null | head -1
+
+One app listed: fine. Two: delete the one the line will not touch, or the
+login item may launch the old copy at boot. The second half prints where
+the login item points.
+
+
+INTEL MACS
+----------
+
+Do not send this dmg to an Intel Mac. The bundled ffmpeg is arm64 only.
+scripts/vendor-ffmpeg.sh maps x86_64 to a different source, but that path
+has not been run on real hardware yet.

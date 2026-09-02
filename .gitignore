@@ -1,0 +1,7 @@
+# Build products and vendored binaries — rebuilt by build.sh / vendor-ffmpeg.sh,
+# and far too large to version (ffmpeg alone is ~50MB, the dmg ~24MB).
+.build/
+vendor/
+*.dmg
+*.app/
+*.zip

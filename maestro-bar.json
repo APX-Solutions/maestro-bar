@@ -1,0 +1,180 @@
+{
+  "title_idle": "M",
+  "api": "https://maestro-agent.duckdns.org",
+  "token_service": "maestro-token",
+  "audio_device": "0",
+  "out_dir": "~/Recordings",
+  "clients_path": "/sales/clients",
+  "badge": {
+    "enabled": false,
+    "path": "/overview/counts",
+    "field": "review",
+    "refresh_seconds": 60
+  },
+  "after_record": {
+    "cmd": "{scripts}/send.sh {file} {client}",
+    "notify": true
+  },
+  "sidebar": {
+    "enabled": true,
+    "hotkey": [
+      "cmd",
+      "M"
+    ],
+    "edge": "right",
+    "width": 44,
+    "flyout_width": 330,
+    "refresh_seconds": 90,
+    "record": [
+      {
+        "symbol": "record.circle",
+        "mode": "audio",
+        "label": "Record audio"
+      },
+      {
+        "symbol": "display",
+        "mode": "screen",
+        "label": "Record screen and audio"
+      }
+    ],
+    "sections": [
+      {
+        "id": "review",
+        "title": "Review",
+        "symbol": "tray.full",
+        "list": "/sales/actions?status=pending",
+        "fields": {
+          "title": [
+            "title",
+            "action_label"
+          ],
+          "subtitle": [
+            "client_name",
+            "meeting_title"
+          ],
+          "body": [
+            "draft_body",
+            "detail"
+          ]
+        },
+        "actions": [
+          {
+            "label": "Done",
+            "symbol": "checkmark",
+            "method": "PATCH",
+            "path": "/sales/actions/{id}",
+            "body": {
+              "status": "done"
+            },
+            "toast": "Marked done"
+          },
+          {
+            "label": "Dismiss",
+            "method": "PATCH",
+            "path": "/sales/actions/{id}",
+            "body": {
+              "status": "dismissed"
+            },
+            "toast": "Dismissed"
+          },
+          {
+            "label": "Send the email",
+            "path": "/sales/actions/{id}/send",
+            "toast": "Sent"
+          }
+        ],
+        "compose": {
+          "path": "/sales/actions/{id}/instruct",
+          "field": "instruction",
+          "placeholder": "Tell the agent what to change",
+          "record": false,
+          "toast": "Instruction sent"
+        }
+      },
+      {
+        "id": "capture",
+        "title": "Capture",
+        "symbol": "mic.circle",
+        "list": "",
+        "actions": [],
+        "compose": {
+          "path": "",
+          "file": "~/Recordings/captures.md",
+          "placeholder": "Idea, decision, ticket",
+          "record": true,
+          "toast": "Captured"
+        }
+      }
+    ]
+  },
+  "items": [
+    {
+      "type": "panel",
+      "label": "Show sidebar"
+    },
+    {
+      "type": "separator"
+    },
+    {
+      "type": "record",
+      "label": "Record audio",
+      "mode": "audio",
+      "hotkey": [
+        "ctrl",
+        "alt",
+        "R"
+      ]
+    },
+    {
+      "type": "record",
+      "label": "Record screen + audio",
+      "mode": "screen",
+      "hotkey": [
+        "ctrl",
+        "alt",
+        "S"
+      ]
+    },
+    {
+      "type": "separator"
+    },
+    {
+      "type": "clients",
+      "label": "Record for client",
+      "mode": "audio"
+    },
+    {
+      "type": "separator"
+    },
+    {
+      "type": "shell",
+      "label": "Open recordings",
+      "cmd": "open ~/Recordings"
+    },
+    {
+      "type": "shell",
+      "label": "Retry unsent recordings",
+      "cmd": "sh -c 'for d in \"$HOME/.maestro/bin\" \"/Applications/MaestroBar.app/Contents/Resources/scripts\"; do [ -x \"$d/flush-media.sh\" ] && exec \"$d/flush-media.sh\"; done'"
+    },
+    {
+      "type": "open",
+      "label": "Open Maestro",
+      "url": "http://localhost:5173"
+    },
+    {
+      "type": "separator"
+    },
+    {
+      "type": "post",
+      "label": "Run sales scan",
+      "path": "/sales/followup-scan",
+      "toast": "Scan started"
+    },
+    {
+      "type": "post",
+      "label": "Poll meetings",
+      "path": "/meetings/poll",
+      "toast": "Polling"
+    }
+  ]
+}
