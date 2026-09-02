@@ -95,6 +95,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
         recorder.onChange = { [weak self] in self?.stateChanged() }
         BarConfig.installDefaultIfMissing()
+        // Runs before the config is read, so an upgraded install picks up the
+        // corrected command on this launch rather than the next one.
+        BarConfig.migrateStaleAfterRecord()
         reload()
         // The panel is the reason for the hot key; open it once on first launch
         // so the permission prompts and the layout are seen straight away.
