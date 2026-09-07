@@ -130,6 +130,46 @@ extension BarConfig {
         try? FileManager.default.copyItem(atPath: src.path, toPath: dst)
     }
 
+    /// Repoint a config still calling push.sh at send.sh.
+    ///
+    /// installDefaultIfMissing deliberately never overwrites an existing
+    /// config — it is the user's file. The consequence nobody planned for is
+    /// that an early install keeps its `after_record` forever, and the early
+    /// one ran push.sh: transcribe locally with faster_whisper, then post the
+    /// TEXT to /meetings/ingest.
+    ///
+    /// That is broken in two ways at once. faster_whisper is a Python package
+    /// almost nobody has, so the transcript comes out empty and the recording
+    /// is never sent — the user sees "Transcript came out empty" and no reason
+    /// why. And even when it works it posts text only, throwing away the screen
+    /// recording, which is the whole point of recording a screen.
+    ///
+    /// No reinstall could fix it, so it is fixed here, once, in place. Only
+    /// that exact swap is made: a config someone edited on purpose keeps
+    /// whatever they set.
+    static func migrateStaleAfterRecord() {
+        let path = expand("~/.config/maestro/bar.json")
+        guard let data = FileManager.default.contents(atPath: path),
+              var json = (try? JSONSerialization.jsonObject(with: data)) as? [String: Any],
+              var after = json["after_record"] as? [String: Any],
+              let cmd = after["cmd"] as? String,
+              cmd.contains("push.sh")
+        else { return }
+
+        after["cmd"] = cmd.replacingOccurrences(of: "push.sh", with: "send.sh")
+        json["after_record"] = after
+
+        // Keep a copy: this rewrites a file the user owns, and being able to
+        // put it back matters more than the two kilobytes.
+        try? FileManager.default.removeItem(atPath: path + ".bak")
+        try? FileManager.default.copyItem(atPath: path, toPath: path + ".bak")
+
+        guard let out = try? JSONSerialization.data(
+                withJSONObject: json, options: [.prettyPrinted, .sortedKeys]) else { return }
+        try? out.write(to: URL(fileURLWithPath: path))
+        NSLog("MaestroBar: migrated after_record from push.sh to send.sh")
+    }
+
     static func load() -> (BarConfig, String) {
         for p in searchPaths {
             guard let data = FileManager.default.contents(atPath: expand(p)) else { continue }

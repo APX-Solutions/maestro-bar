@@ -69,9 +69,19 @@ curl -sS --fail --max-time 900 -X PUT "$URL" \
 
 # 3. tell Maestro to read it. Long timeout on purpose: it downloads the media,
 #    hands it to the model and waits for a verdict.
+# The page the reporter pasted before recording, left beside the media by the
+# app. Read here rather than passed as an argument so it survives a parked
+# recording that is retried later, possibly after a restart.
+PAGE_URL=""
+[ -f "$FILE.url" ] && PAGE_URL="$(tr -d '\r\n' < "$FILE.url" 2>/dev/null || true)"
+
 OUT="$(curl -sS --max-time 900 "${auth[@]}" -H 'Content-Type: application/json' \
   -X POST "$API/recordings/ingest" \
-  -d "$(python3 -c 'import json,sys;print(json.dumps({"key":sys.argv[1],"kind":sys.argv[2]}))' "$KEY" "$KIND")" 2>/dev/null)"
+  -d "$(python3 -c 'import json,sys;print(json.dumps({"key":sys.argv[1],"kind":sys.argv[2],"page_url":sys.argv[3]}))' "$KEY" "$KIND" "$PAGE_URL")" 2>/dev/null)"
+
+# Read, so the note has done its job. Left behind it would attach the wrong
+# page to nothing in particular.
+rm -f "$FILE.url"
 
 python3 - <<PY
 import json, subprocess
