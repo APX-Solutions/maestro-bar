@@ -23,7 +23,51 @@ final class Recorder {
     }
 
     func toggle(mode: String, client: String?, config: BarConfig) {
-        if isRecording { stop() } else { start(mode: mode, client: client, config: config) }
+        // Only asked on the way in. Asking on the way out would put a dialog in
+        // front of someone trying to stop, while the recording keeps rolling.
+        if isRecording {
+            stop()
+        } else {
+            start(mode: mode, client: client, config: config, pageURL: askPageURL())
+        }
+    }
+
+    /// Where the bug is, asked once before capture starts.
+    ///
+    /// A screen recording shows the page but not dependably its address — the
+    /// URL bar is small, often cropped, and the model reads what was SAID. This
+    /// is the one fact a recording cannot carry, so it is asked for directly.
+    ///
+    /// Prefilled from the clipboard when it holds a URL, which it usually does:
+    /// someone reporting a page bug copied the address on the way here. That
+    /// makes the prompt a single Return.
+    ///
+    /// Skipping is a real answer. Skip, Escape, or an empty box all record with
+    /// no URL — nothing here can stop a recording.
+    private func askPageURL() -> String {
+        let a = NSAlert()
+        a.messageText = "Where is this?"
+        a.informativeText = "Paste the page URL. Optional — press Skip if it does not apply."
+        a.addButton(withTitle: "Record")
+        a.addButton(withTitle: "Skip")
+
+        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
+        field.placeholderString = "https://…"
+        let clip = (NSPasteboard.general.string(forType: .string) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = clip.lowercased()
+        if (lower.hasPrefix("http://") || lower.hasPrefix("https://")), clip.count <= 2000 {
+            field.stringValue = clip
+        }
+        a.accessoryView = field
+        a.window.initialFirstResponder = field
+
+        // The bar is an accessory app with no windows of its own, so the alert
+        // can open behind whatever is in front. Without this it looks like the
+        // record button did nothing.
+        NSApp.activate(ignoringOtherApps: true)
+        guard a.runModal() == .alertFirstButtonReturn else { return "" }
+        return field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
     }
 
     /// The app's own copy first, then Homebrew's.
@@ -54,7 +98,8 @@ final class Recorder {
         return nil
     }
 
-    func start(mode: String, client: String?, config: BarConfig) {
+    func start(mode: String, client: String?, config: BarConfig,
+               pageURL: String = "") {
         guard !isRecording else { return }
         if mode != "screen", Recorder.ffmpegPath() == nil {
             // The app ships its own ffmpeg, so reaching here means the copy
@@ -113,6 +158,17 @@ final class Recorder {
         let out = URL(fileURLWithPath: dir)
             .appendingPathComponent(name + "." + (mode == "screen" ? "mov" : "m4a"))
         file = out
+
+        // Written now, while the answer is in hand, rather than after the
+        // recording ends: a crash mid-capture still leaves the page beside the
+        // media, and send.sh reads it there on the first try or on a retry days
+        // later. Removed first, so a skipped prompt cannot inherit the URL of
+        // the previous recording.
+        let side = URL(fileURLWithPath: out.path + ".url")
+        try? FileManager.default.removeItem(at: side)
+        if !pageURL.isEmpty {
+            try? pageURL.write(to: side, atomically: true, encoding: .utf8)
+        }
 
         // exec replaces the shell with the recorder, so the interrupt below
         // reaches ffmpeg itself. A login shell is used so Homebrew is on PATH.
