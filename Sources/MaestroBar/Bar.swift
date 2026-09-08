@@ -57,7 +57,7 @@ func askForToken(service: String) {
     a.messageText = "Maestro API token"
     a.informativeText = "Paste the token you were given. It is kept in your "
         + "login keychain, never in a file."
-    let field = NSSecureTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
+    let field = EditableSecureTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
     a.accessoryView = field
     a.addButton(withTitle: "Save")
     a.addButton(withTitle: "Cancel")

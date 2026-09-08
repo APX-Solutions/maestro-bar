@@ -9,6 +9,20 @@ APP_NAME="MaestroBar"
 BUNDLE_ID="com.carbonbox.maestrobar"
 APP="$APP_NAME.app"
 
+# The version, from git rather than by hand.
+#
+# Every build called itself 1.0 (1), so nothing could tell an old app from a new
+# one — which is the whole reason an update check was impossible. The commit
+# count is monotonic, needs no discipline to maintain, and is what an update
+# compares. The short string carries the sha so a screenshot of About tells you
+# exactly which build someone is running.
+BUILD=$(git rev-list --count HEAD 2>/dev/null || echo 0)
+SHA=$(git rev-parse --short HEAD 2>/dev/null || echo dev)
+DIRTY=""
+git diff --quiet 2>/dev/null || DIRTY="+"
+VERSION="1.$BUILD ($SHA$DIRTY)"
+echo "==> Version $VERSION"
+
 if ! xcode-select -p >/dev/null 2>&1; then
   echo "Xcode command line tools are missing. Run: xcode-select --install"
   exit 1
@@ -72,8 +86,8 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundleExecutable</key><string>$APP_NAME</string>
   <key>CFBundleIdentifier</key><string>$BUNDLE_ID</string>
   <key>CFBundlePackageType</key><string>APPL</string>
-  <key>CFBundleShortVersionString</key><string>1.0</string>
-  <key>CFBundleVersion</key><string>1</string>
+  <key>CFBundleShortVersionString</key><string>$VERSION</string>
+  <key>CFBundleVersion</key><string>$BUILD</string>
   <key>LSMinimumSystemVersion</key><string>12.0</string>
   <key>LSUIElement</key><true/>
   <key>NSMicrophoneUsageDescription</key>

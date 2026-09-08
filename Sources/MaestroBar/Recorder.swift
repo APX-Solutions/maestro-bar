@@ -51,7 +51,7 @@ final class Recorder {
         a.addButton(withTitle: "Record")
         a.addButton(withTitle: "Skip")
 
-        let field = NSTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
+        let field = EditableTextField(frame: NSRect(x: 0, y: 0, width: 360, height: 24))
         field.placeholderString = "https://…"
         let clip = (NSPasteboard.general.string(forType: .string) ?? "")
             .trimmingCharacters(in: .whitespacesAndNewlines)
