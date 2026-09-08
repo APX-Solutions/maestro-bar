@@ -37,7 +37,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     private var subtitleLabel = NSTextField(labelWithString: "")
     private var counterLabel = NSTextField(labelWithString: "")
     private var bodyView = NSTextView()
-    private var input = NSTextField()
+    private var input = EditableTextField()
     private var micButton: NSButton?
 
     private let itemSize: CGFloat = 34
@@ -369,7 +369,7 @@ final class PanelController: NSObject, NSWindowDelegate {
     private func composeView(_ s: PanelSection) -> NSView {
         let c = s.compose ?? PanelCompose()
 
-        input = NSTextField()
+        input = EditableTextField()
         input.isBezeled = false
         input.drawsBackground = false
         input.focusRingType = .none
@@ -495,7 +495,7 @@ final class PanelController: NSObject, NSWindowDelegate {
         // A section may carry its own compose box, as Review does: what is
         // typed there is an instruction about the card, not a reply to anyone.
         if let c = s.compose {
-            input = NSTextField()
+            input = EditableTextField()
             input.isBezeled = false
             input.drawsBackground = false
             input.focusRingType = .none
