@@ -63,11 +63,35 @@ sleep 1
 rm -rf "$APP" && cp -R "$M/MaestroBar.app" "$(dirname "$APP")/" || die "could not replace the app"
 hdiutil detach "$M" -quiet 2>/dev/null
 
-# Quarantine only. NOT tccutil: this is an upgrade, and resetting the screen
-# permission would make everyone re-approve and restart for no reason.
 xattr -dr com.apple.quarantine "$APP" 2>/dev/null
+
+# Clear the screen-recording decision, even though this is an upgrade.
+#
+# The instinct is to preserve it, and that was the first version of this script.
+# It is wrong while the app is ad-hoc signed: macOS identifies it by cdhash,
+# every build has a different one, and the old entry therefore authorises an app
+# that no longer exists. What the person sees is the worst of both — System
+# Settings showing Maestro Bar already switched ON, and the app asking for
+# permission anyway, with the toggle doing nothing because it is already on.
+#
+# Resetting turns that dead end into one honest prompt. It costs an allow and a
+# restart per update, which is the real price of ad-hoc signing; a Developer ID
+# certificate is what removes it, not this line.
+tccutil reset ScreenCapture com.carbonbox.maestrobar >/dev/null 2>&1
 
 now=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist" 2>/dev/null)
 open "$APP" || die "updated, but could not start it — open Maestro Bar from Applications"
 
-printf "\n  Updated to %s. Maestro Bar is running again.\n\n" "${now:-the latest build}"
+cat <<EOF
+
+  Updated to ${now:-the latest build}. Maestro Bar is running again.
+
+  Screen recording will ask permission once more. That is expected on every
+  update — macOS sees each new build as a different app — so:
+
+    1. Press Ctrl+Alt+S, and allow the permission macOS asks for.
+    2. QUIT Maestro Bar and open it again.
+
+  Audio recording (Ctrl+Alt+R) needs none of that and works right now.
+
+EOF
