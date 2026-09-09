@@ -12,6 +12,11 @@
 #
 # Nothing is ever lost: if any step fails the file stays where it is and its path
 # is queued in ~/Recordings/unsent-media for flush-media.sh to retry.
+#
+# No python. /usr/bin/python3 on a clean Mac is a stub that pops "the python3
+# command requires the command line developer tools" and waits for someone to
+# download a gigabyte of Xcode — which is what a colleague hit on her first
+# recording. plutil reads and writes JSON, ships with macOS, and needs nothing.
 set -uo pipefail
 
 FILE="${1:?usage: send.sh <file> [client]}"
@@ -22,6 +27,19 @@ BASE="$(basename "$FILE")"
 
 note() { osascript -e "display notification \"$1\" with title \"Maestro\"" >/dev/null 2>&1; }
 park() { mkdir -p "$UNSENT"; printf '%s\n' "$FILE" >> "$UNSENT/queue"; note "$1"; exit 1; }
+
+# One field out of a JSON object, or empty. Never fatal: a missing field is an
+# answer, and the caller decides what it means.
+jget() { printf '%s' "${2:-}" | plutil -extract "$1" raw -o - -- - 2>/dev/null; }
+
+# A value, escaped for embedding in JSON. Backslash first or it doubles the
+# escapes it just added. Newlines and tabs would otherwise produce a body the
+# server rejects as malformed.
+jstr() {
+  printf '%s' "${1:-}" \
+    | sed -e 's/\\/\\\\/g' -e 's/"/\\"/g' \
+    | awk '{printf "%s%s", sep, $0; sep="\\n"} END{print ""}'
+}
 
 [ -s "$FILE" ] || { note "Nothing recorded"; exit 1; }
 
@@ -50,14 +68,11 @@ auth=(-H "Authorization: Bearer $TOKEN")
 #    serves live clients on 900MB of RAM.
 SIGNED="$(curl -sS --max-time 30 "${auth[@]}" -H 'Content-Type: application/json' \
   -X POST "$API/recordings/upload-url" \
-  -d "$(python3 -c 'import json,sys;print(json.dumps({"filename":sys.argv[1],"kind":sys.argv[2]}))' "$BASE" "$KIND")" 2>/dev/null)"
+  -d "{\"filename\":\"$(jstr "$BASE")\",\"kind\":\"$KIND\"}" 2>/dev/null)"
 
-read -r KEY URL CTYPE <<<"$(python3 - <<PY 2>/dev/null
-import json
-d = json.loads('''$SIGNED''' or "{}")
-print(d.get("key",""), d.get("url",""), d.get("content_type",""))
-PY
-)"
+KEY="$(jget key "$SIGNED")"
+URL="$(jget url "$SIGNED")"
+CTYPE="$(jget content_type "$SIGNED")"
 [ -n "${KEY:-}" ] && [ -n "${URL:-}" ] || park "Maestro would not sign the upload — recording kept"
 
 # 2. upload. --fail so a 4xx from S3 is an error rather than a saved error page.
@@ -77,30 +92,33 @@ PAGE_URL=""
 
 OUT="$(curl -sS --max-time 900 "${auth[@]}" -H 'Content-Type: application/json' \
   -X POST "$API/recordings/ingest" \
-  -d "$(python3 -c 'import json,sys;print(json.dumps({"key":sys.argv[1],"kind":sys.argv[2],"page_url":sys.argv[3]}))' "$KEY" "$KIND" "$PAGE_URL")" 2>/dev/null)"
+  -d "{\"key\":\"$(jstr "$KEY")\",\"kind\":\"$KIND\",\"page_url\":\"$(jstr "$PAGE_URL")\"}" 2>/dev/null)"
 
 # Read, so the note has done its job. Left behind it would attach the wrong
 # page to nothing in particular.
 rm -f "$FILE.url"
 
-python3 - <<PY
-import json, subprocess
-d = json.loads('''$OUT''' or "{}")
-cat, routed = d.get("category"), d.get("routed")
-if not d.get("ok"):
-    msg = "Maestro could not read it — recording kept"
-elif routed == "triage":
-    msg = f"{cat}: {d.get('title') or ''}"[:120] + " — card raised"
-elif routed == "meeting":
-    msg = f"Brainstorm — {d.get('tasks', 0)} task(s) proposed"
-else:
-    # Read, but deliberately not turned into a card. Say why: "other" and a
-    # low-confidence verdict are normal answers, not failures.
-    msg = f"Read, no card: {d.get('reason') or cat or 'nothing actionable'}"[:150]
-subprocess.run(["osascript", "-e", f'display notification "{msg}" with title "Maestro"'],
-               capture_output=True)
-PY
+OK="$(jget ok "$OUT")"
+ROUTED="$(jget routed "$OUT")"
+CAT="$(jget category "$OUT")"
+TITLE="$(jget title "$OUT")"
+REASON="$(jget reason "$OUT")"
+TASKS="$(jget tasks "$OUT")"
 
-python3 -c "import json,sys;sys.exit(0 if json.loads('''$OUT''' or '{}').get('ok') else 1)" \
-  || park "Maestro could not read it — recording kept"
+if [ "$OK" != "true" ]; then
+  MSG="Maestro could not read it — recording kept"
+elif [ "$ROUTED" = "triage" ]; then
+  MSG="$CAT: $TITLE — card raised"
+elif [ "$ROUTED" = "meeting" ]; then
+  MSG="Brainstorm — ${TASKS:-0} task(s) proposed"
+else
+  # Read, but deliberately not turned into a card. Say why: "other" and a
+  # low-confidence verdict are normal answers, not failures.
+  MSG="Read, no card: ${REASON:-${CAT:-nothing actionable}}"
+fi
+# A quote in a title would end the osascript string early and swallow the
+# notification, which is how a working upload looks like nothing happened.
+note "$(printf '%s' "${MSG:0:150}" | tr -d '"')"
+
+[ "$OK" = "true" ] || park "Maestro could not read it — recording kept"
 rm -f "$UNSENT/queue" 2>/dev/null || true
