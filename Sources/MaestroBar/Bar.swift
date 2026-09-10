@@ -105,6 +105,9 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             UserDefaults.standard.set(true, forKey: "seenSidebar")
             panel.show()
         }
+        // MAESTRO_SHOW=1 opens the bar at launch: for trying a build without
+        // reaching for the hot key.
+        if ProcessInfo.processInfo.environment["MAESTRO_SHOW"] == "1" { panel.show() }
     }
 
     // MARK: - configuration

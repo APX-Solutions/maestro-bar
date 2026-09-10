@@ -171,7 +171,13 @@ extension BarConfig {
     }
 
     static func load() -> (BarConfig, String) {
-        for p in searchPaths {
+        // MAESTRO_CONFIG=path wins over the search list: a build can be tried
+        // against a different config without touching the real one.
+        var paths = searchPaths
+        if let forced = ProcessInfo.processInfo.environment["MAESTRO_CONFIG"], !forced.isEmpty {
+            paths.insert(forced, at: 0)
+        }
+        for p in paths {
             guard let data = FileManager.default.contents(atPath: expand(p)) else { continue }
             do {
                 return (try JSONDecoder().decode(BarConfig.self, from: data), p)

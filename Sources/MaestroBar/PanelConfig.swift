@@ -123,6 +123,9 @@ struct PanelConfig {
     var refreshSeconds: Double = 90      // how often the counts are refreshed
     var sections: [PanelSection] = []
     var records: [RecordButton] = []     // one icon each
+    var askPath: String = "/brain/ask"   // the Ask box; empty switches it off
+    var askPlaceholder: String = "Ask about clients, meetings, decisions"
+    var invisible: Bool = true           // left out of screen shares and recordings
 }
 
 extension PanelConfig: Decodable {
@@ -130,6 +133,9 @@ extension PanelConfig: Decodable {
         case enabled, hotkey, edge, width, sections, record
         case flyoutWidth = "flyout_width"
         case refreshSeconds = "refresh_seconds"
+        case askPath = "ask_path"
+        case askPlaceholder = "ask_placeholder"
+        case invisible
     }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: K.self)
@@ -141,6 +147,9 @@ extension PanelConfig: Decodable {
         flyoutWidth = try c.decodeIfPresent(Double.self, forKey: .flyoutWidth) ?? flyoutWidth
         refreshSeconds = try c.decodeIfPresent(Double.self, forKey: .refreshSeconds) ?? refreshSeconds
         sections = try c.decodeIfPresent([PanelSection].self, forKey: .sections) ?? sections
+        askPath = try c.decodeIfPresent(String.self, forKey: .askPath) ?? askPath
+        askPlaceholder = try c.decodeIfPresent(String.self, forKey: .askPlaceholder) ?? askPlaceholder
+        invisible = try c.decodeIfPresent(Bool.self, forKey: .invisible) ?? invisible
         // "record" takes one object or a list of them, so a second recorder is
         // a line of JSON rather than a schema change.
         if let many = try? c.decode([RecordButton].self, forKey: .record) {
