@@ -43,79 +43,83 @@ security add-generic-password -s maestro-token -a "$USER" -w 'YOUR_TOKEN'
 The first recording asks for the Microphone permission, screen recording asks
 for Screen Recording. Both prompts come from macOS and are granted once.
 
-## The sidebar
+## The bar
 
-`⌃⌥M` shows and hides it. It is a strip 44 points wide that parks against the
-edge of the screen. Drag it anywhere and it snaps back to the nearer side; it
-remembers where you left it.
-
-```
-                                    ┌────┐
-                                    │ ▤ ●│  Review, with a dot when
-                                    │ ◍  │  something is waiting
-                                    │ ⏺  │  Capture
-                                    └────┘  Record
-                                      44pt
-```
-
-Click an icon and a small flyout opens beside it. Click the same icon again, or
-press Esc, and it closes. Nothing else is on screen.
+`⌘M` shows and hides it. It parks at the top centre of the screen: a pill that
+says whether anything is recording, and a panel under it for the queue, for
+capturing a thought and for asking the company brain.
 
 ```
-  ┌──────────────────────────────┐┌────┐
-  │ Follow up on the Ohrid shoot ││ ▤ ●│
-  │ Kupola Media                 ││ ◍  │
-  │                              ││ ⏺  │
-  │ Hi Marko, thanks for the     │└────┘
-  │ call this morning. As …      │
-  │                              │
-  │ ‹ ✓ … ›            3 of 11   │
-  │ Tell the agent what to change│
-  └──────────────────────────────┘
+ (⠿)  ( M  ● Not recording  [mic] [screen]  ⌃ Hide )  (×)
+ ┌────────────────────────────────────────────────────┐
+ │ Review                                  ‹ 1 of 3 › │
+ │ Follow up on the Ohrid shoot                       │
+ │ Kupola Media                                       │
+ │ Hi Marko, thanks for the call this morning …       │
+ │ ✓ Done   Dismiss   Send the email                  │
+ │                                                    │
+ │ ▤ Review 3 · ✎ Capture · ✦ Ask                     │
+ │ ┌────────────────────────────────────────────────┐ │
+ │ │ Tell the agent what to change, or ⌘ ↵ to send  │ │
+ │ │ About this card                            (↑) │ │
+ │ └────────────────────────────────────────────────┘ │
+ └────────────────────────────────────────────────────┘
 ```
 
-Capture is smaller still: a title, one line to type in, a microphone and a send
-button.
+Drag the grip to move it; where you leave it is where it comes back. `Hide`
+collapses the panel and leaves the pill. `×` puts the whole thing away, and so
+does Escape twice.
 
-### What the three icons do
+Everything on screen is one web page, in `ui/`, shared with the Windows app —
+so the two look identical and are edited once. `ui/DESIGN.md` says why it looks
+the way it does. To look at it without building anything:
 
-| Icon | Reads | Buttons |
+```sh
+open "ui/index.html?mock"
+```
+
+### What the chips do
+
+| Chip | Reads | Buttons |
 | --- | --- | --- |
-| Review | `/sales/actions?status=pending` | Done, and under `…` Dismiss and Send the email |
+| Review | `/sales/actions?status=pending` | Done, Dismiss, Send the email |
 | Capture | nothing | appends to `~/Recordings/captures.md`, with a microphone |
-| Record audio | | starts and stops an audio recording |
-| Record screen | | screen and audio, saved as a .mov |
+| Ask | `/brain/ask` | answers with citations you can click |
 
-Only the icon whose recording is actually running turns red. `record` in the
-config takes one object or a list of them, so a third recorder is a line of
-JSON.
+The two buttons in the pill start and stop a recording — audio, and screen with
+audio. Only the one that is running turns red, and the pill counts up while it
+does. `record` in the config takes one object or a list of them, so a third
+recorder is a line of JSON.
 
-`✓` runs the section's first action, `…` holds the rest, `‹` and `›` move
-through the cards. An action fires optimistically: the card leaves at once, and
-if the request fails the list reloads and a notification says so. Waiting for
-the round trip makes triage feel broken.
-
-The line at the bottom of the Review flyout is the interesting one. What you
-type there does not go to a client, it POSTs to `/sales/actions/{id}/instruct`,
-so you are telling the agent what to change about the card in front of you.
-That endpoint already feeds the learning signals.
+The box at the bottom belongs to whichever chip is lit, and its placeholder
+says so. Under Review what you type does not go to a client: it POSTs to
+`/sales/actions/{id}/instruct`, so you are telling the agent what to change
+about the card in front of you. That endpoint already feeds the learning
+signals. Under Ask it goes to the company brain and the answer comes back with
+its sources.
 
 Capture has no endpoint yet, so it appends to a file. When there is one that
 turns a note into a ticket, put its path in `compose.path` and the same box
 starts posting instead. That is the only change needed.
 
-### Sidebar configuration
+### The bar is not in your screen share
+
+The window is excluded from screen capture — the same mechanism Zoom uses for
+its own overlays — so it is not in a shared screen, in a call, or in Maestro's
+own screen recordings. `"invisible": false` in the config turns that off.
+
+### Configuration
 
 ```jsonc
 "sidebar": {
   "enabled": true,
-  "hotkey": ["ctrl", "alt", "M"],
-  "edge": "right",          // which side it parks on the first time
-  "width": 44,              // the strip
-  "flyout_width": 330,      // what opens beside it
-  "refresh_seconds": 90,    // how often the dots are refreshed
+  "hotkey": ["cmd", "M"],
+  "refresh_seconds": 90,      // how often the counts are refreshed
+  "invisible": true,          // left out of screen shares
+  "ask_path": "/brain/ask",   // empty removes the Ask chip
+  "ask_placeholder": "Ask about clients, meetings, decisions",
   "record": { "symbol": "record.circle", "mode": "audio", "label": "Record" },
-  "sections": [ { ... } ]   // one icon each, in order
+  "sections": [ { ... } ]     // one chip each, in order
 }
 ```
 
@@ -124,12 +128,12 @@ A section:
 | Key | Meaning |
 | --- | --- |
 | `id` | Sent as `section` with anything the compose box posts |
-| `title` | The icon's tooltip, and the heading of a compose flyout |
-| `symbol` | SF Symbol name for the icon |
-| `list` | Endpoint returning the cards; empty means a compose only flyout |
+| `title` | The chip's label |
+| `symbol` | SF Symbol name; the page maps it onto its own drawn set |
+| `list` | Endpoint returning the cards; empty means a compose-only chip |
 | `fields` | Which keys of a row to read for `title`, `subtitle`, `body`, in order of preference |
-| `actions` | The buttons. First one is `✓`, the rest go under `…` |
-| `compose` | The line to type in at the bottom |
+| `actions` | The buttons under a card. The first one is the primary |
+| `compose` | The box at the bottom |
 
 An action:
 
@@ -141,7 +145,9 @@ An action:
 
 `{id}` becomes the row's id and `{any_other_field}` becomes that field of the
 row, so an action can address a nested resource. `advance` false keeps the card
-on screen after the request.
+on screen after the request. An action fires optimistically: the card leaves at
+once, and if the request fails the list reloads and the bar says so. Waiting for
+the round trip makes triage feel broken.
 
 A compose box:
 
@@ -152,11 +158,18 @@ A compose box:
 
 `field` is the JSON key your text goes into. `section` and `item_id` are added
 automatically. With `path` empty and `file` set, the text is appended to that
-file instead. `record` true adds the microphone button.
+file instead. `record` true puts a Voice button in the box.
 
-Adding a fourth icon, for meeting tasks, is a section with
+Adding a fourth chip, for meeting tasks, is a section with
 `"list": "/meeting-tasks?status=proposed"` and two actions pointing at
 `/meeting-tasks/{id}/accept` and `/meeting-tasks/{id}/dismiss`. No rebuild.
+
+### Editing the interface
+
+`ui/` is copied into the app bundle at build time, and the app prefers
+`~/Desktop/MaestroBar/ui/index.html` when it exists — so on this machine you can
+edit the page and reopen the bar without rebuilding. `scripts/sync-ui.sh` copies
+it to the Windows checkout, which is how the two stay identical.
 
 ## The menu bar
 

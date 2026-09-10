@@ -46,6 +46,10 @@ cp scripts/*.sh "$APP/Contents/Resources/scripts/" 2>/dev/null || true
 chmod +x "$APP/Contents/Resources/scripts/"*.sh 2>/dev/null || true
 cp maestro-bar.json "$APP/Contents/Resources/maestro-bar.json"
 
+# The bar itself: one page, shared with the Windows app. Edit ui/, rebuild.
+rm -rf "$APP/Contents/Resources/ui"
+cp -R ui "$APP/Contents/Resources/ui"
+
 # --- ffmpeg, inside the bundle ----------------------------------------------
 # Audio needs it; screen capture does not. Shipping it here is what makes audio
 # work for someone who installed by dragging the app out of the DMG and has

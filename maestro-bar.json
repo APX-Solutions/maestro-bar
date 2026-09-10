@@ -21,10 +21,10 @@
       "cmd",
       "M"
     ],
-    "edge": "right",
-    "width": 44,
-    "flyout_width": 330,
     "refresh_seconds": 90,
+    "invisible": true,
+    "ask_path": "/brain/ask",
+    "ask_placeholder": "Ask about clients, meetings, decisions",
     "record": [
       {
         "symbol": "record.circle",
