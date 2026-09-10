@@ -92,6 +92,37 @@
         }
       },
       {
+        "id": "board",
+        "title": "Board",
+        "symbol": "board",
+        "list": "/trello/batches",
+        "fields": {
+          "title": [
+            "title"
+          ],
+          "subtitle": [
+            "subtitle"
+          ],
+          "body": [
+            "detail"
+          ]
+        },
+        "actions": [
+          {
+            "label": "Keep",
+            "method": "POST",
+            "path": "/trello/batches/{id}/keep",
+            "toast": "Kept"
+          },
+          {
+            "label": "Undo all",
+            "method": "POST",
+            "path": "/trello/batches/{id}/undo",
+            "toast": "Undone on Trello"
+          }
+        ]
+      },
+      {
         "id": "capture",
         "title": "Capture",
         "symbol": "mic.circle",

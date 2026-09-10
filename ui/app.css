@@ -345,7 +345,7 @@ kbd {
 }
 .send:hover { transform: scale(1.03); }
 .send:active { transform: scale(0.97); }
-.send:disabled { opacity: 0.45; }
+.send:disabled { opacity: 0.35; filter: grayscale(1); }
 
 /* a toast that lives inside the bar, so an outcome is seen where the click was */
 .toast {

@@ -38,6 +38,7 @@
     stop: I('<rect x="7" y="7" width="10" height="10" rx="2" fill="currentColor" stroke="none"/>'),
     inbox: I('<path d="M3 13h5l1.5 2.5h5L16 13h5M4.5 5h15l1.5 8v6h-18v-6z"/>'),
     pencil: I('<path d="M4 20h4L19 9l-4-4L4 16zM13 7l4 4"/>'),
+    board: I('<rect x="3.5" y="4" width="4.5" height="16" rx="1.2"/><rect x="9.75" y="4" width="4.5" height="11" rx="1.2"/><rect x="16" y="4" width="4.5" height="13.5" rx="1.2"/>'),
     spark: I('<path d="M12 3l1.8 5.2L19 10l-5.2 1.8L12 17l-1.8-5.2L5 10l5.2-1.8zM19 16l.8 2.2L22 19l-2.2.8L19 22l-.8-2.2L16 19l2.2-.8z"/>'),
     check: I('<path d="M5 12.5l4.5 4.5L19 7"/>'),
     send: I('<path d="M12 19V5M6 11l6-6 6 6"/>'),
@@ -49,6 +50,7 @@
   // SF Symbol names in bar.json → the drawn set. Unknown names get a spark.
   const symbolIcon = (name = "") => {
     const n = name.toLowerCase();
+    if (n.includes("board") || n.includes("kanban")) return icons.board;
     if (n.includes("tray") || n.includes("inbox")) return icons.inbox;
     if (n.includes("pencil") || n.includes("square.and")) return icons.pencil;
     if (n.includes("mic")) return icons.mic;
@@ -368,13 +370,17 @@
   function renderComposer() {
     const s = activeSection();
     const ph = $("#ph");
+    const canType = state.active === ASK || !!(s && s.compose);
     let text;
     if (state.active === ASK) text = (state.ask && state.ask.placeholder) || "Ask about clients, meetings, decisions";
     else if (s && s.compose) text = s.compose.placeholder || "Start typing";
-    else text = "Nothing to type here";
-    ph.innerHTML = `<span>${esc(text)}, or</span><kbd>${modKey()}</kbd><kbd>↵</kbd><span>to send</span>`;
+    else text = s && s.hasList ? "Nothing to type here. Use the buttons above." : "Nothing to type here";
+    // The send hint only where there is something to send. "Nothing to type
+    // here, or press send" was the box contradicting itself.
+    ph.innerHTML = canType
+      ? `<span>${esc(text)}, or</span><kbd>${modKey()}</kbd><kbd>↵</kbd><span>to send</span>`
+      : `<span>${esc(text)}</span>`;
     ph.hidden = $("#input").value.length > 0;
-    const canType = state.active === ASK || !!(s && s.compose);
     $("#input").disabled = !canType;
     $("#send").disabled = !canType;
     $("#send").innerHTML = icons.send;
