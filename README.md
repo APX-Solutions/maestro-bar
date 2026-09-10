@@ -75,7 +75,7 @@ so the two look identical and are edited once. `ui/DESIGN.md` says why it looks
 the way it does. To look at it without building anything:
 
 ```sh
-open "ui/index.html?mock"
+open ui/preview.html
 ```
 
 ### What the chips do

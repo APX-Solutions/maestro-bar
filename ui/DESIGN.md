@@ -69,11 +69,12 @@ motion` stills it.
 ## Looking at it without the app
 
 ```
-open "ui/index.html?mock"            # the review queue
-open "ui/index.html?mock=recording"  # a recording in progress
-open "ui/index.html?mock=empty"      # nothing waiting
-open "ui/index.html?mock&os=win"     # Windows key labels
+open ui/preview.html
 ```
+
+That opens the review queue. For the other states, change the end of the
+address in the browser: `?mock=recording` for a recording in progress,
+`?mock=empty` for nothing waiting, `?mock&os=win` for Windows key labels.
 
 `mock.js` pretends to be the native side. It is loaded by `index.html` but
 does nothing unless `?mock` is in the URL.

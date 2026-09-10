@@ -1,5 +1,5 @@
 /* A pretend native side, for looking at the bar in a browser:
- *   open ui/index.html?mock  (or ?mock=empty, ?mock=recording, ?mock=ask)
+ *   open ui/preview.html, then ?mock=empty or ?mock=recording in the address bar
  * Nothing here ships in the app. */
 (() => {
   const q = new URLSearchParams(location.search);

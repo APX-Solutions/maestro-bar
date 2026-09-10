@@ -1,0 +1,7 @@
+<!doctype html>
+<meta charset="utf-8">
+<title>Maestro Bar preview</title>
+<!-- macOS `open` reads "index.html?mock" as a file path, and no file has that
+     name, so the bar's mock mode cannot be reached from a terminal that way.
+     `open ui/preview.html` works, and this page adds the query itself. -->
+<script>location.replace("index.html?mock");</script>
