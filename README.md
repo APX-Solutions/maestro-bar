@@ -106,6 +106,35 @@ Capture has no endpoint yet, so it appends to a file. When there is one that
 turns a note into a ticket, put its path in `compose.path` and the same box
 starts posting instead. That is the only change needed.
 
+### Starting a recording
+
+Pressing either record button asks one question first, in the bar itself:
+
+```
+   ┌────────────────────────────────────┐ ┌───┐
+   │ Where is this?                     │ │ ⠿ │
+   │ Paste the address of the page you  │ ├───┤
+   │ are recording, or skip it. The     │ │ ◉ │
+   │ recording starts either way.       │ │ ▣ │
+   │ ┌────────────────────────────────┐ │ │ ‹ │
+   │ │ https://…                      │ │ ├───┤
+   │ │ Skip                       (↑) │ │ │ ✕ │
+   │ └────────────────────────────────┘ │ └───┘
+   └────────────────────────────────────┘
+```
+
+A screen recording shows the page but not dependably its address: the URL bar
+is small, often cropped, and the model reads what was said. That is the one
+fact the recording cannot carry, so it is asked for.
+
+The box is prefilled from the clipboard when it holds an address, which it
+usually does, so the whole question is one Return. Skip and Escape record
+without one. Either way the panel closes and the recording starts.
+
+Nothing here can stop a recording, and the question is only asked on the way
+in. Asking on the way out would put it in front of someone trying to stop
+while the recording kept rolling.
+
 ### Keeping the bar out of a screen share
 
 By default the bar is on screen like any other window: people you share with

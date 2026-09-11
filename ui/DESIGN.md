@@ -62,6 +62,17 @@ The chips are the only navigation. They say where what you type goes, which
 is why the composer sits directly under them and its placeholder changes with
 the chip.
 
+## One question, in the bar
+
+Starting a recording asks where it is. That used to be a system alert in front
+of everything, which is a different surface, a different typeface and a
+different set of buttons for a question the bar itself could ask.
+
+It now takes the panel over: the chips step aside, the box takes an address,
+and Skip sits where the voice button normally is. Both answers record; only
+one carries an address. Answering closes the panel, because answering was the
+only reason it was open.
+
 ## Where the boldness is spent
 
 On the recording state, and nowhere else. Idle, the strip is a column of grey

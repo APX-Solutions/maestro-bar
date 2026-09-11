@@ -35,6 +35,7 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
     private var loaded = false
     private var queued: [[String: Any]] = []
     private var pendingExpand = false     // asked for before the page was ready
+    private var pendingRecord: String?    // the mode waiting on "where is this?"
 
     private var rows: [String: [[String: Any]]] = [:]   // section id → raw rows
     private var counts: [String: Int] = [:]
@@ -366,9 +367,12 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
         case "ask":
             if let text = m["text"] as? String { ask(text) }
         case "record":
-            if let mode = m["mode"] as? String {
-                recorder.toggle(mode: mode, client: nil, config: config)
-            }
+            if let mode = m["mode"] as? String { requestRecording(mode: mode) }
+        case "url_answer":
+            guard let mode = pendingRecord else { break }
+            pendingRecord = nil
+            recorder.start(mode: mode, client: nil, config: config,
+                           pageURL: (m["url"] as? String) ?? "")
         case "open_url":
             // Citations, and nothing else: the page never asks for a bare URL.
             let target = (m["url"] as? String) ?? ""
@@ -384,6 +388,40 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
 
     func webView(_ webView: WKWebView, didFail navigation: WKNavigation!, withError error: Error) {
         NSLog("MaestroBar: the bar page failed to load: %@", error.localizedDescription)
+    }
+
+    // MARK: - recording
+
+    /// Starting a recording asks one question first: where is this? A screen
+    /// recording shows the page but not dependably its address, and that is
+    /// the one fact it cannot carry.
+    ///
+    /// It used to be a system dialog in front of everything. Now it is the
+    /// bar's own box, which is where the click that started this happened, and
+    /// it closes the moment it has an answer. Both answers record; only one of
+    /// them carries an address.
+    func requestRecording(mode: String) {
+        if recorder.isRecording { recorder.stop(); return }
+        guard panelConfig.enabled else {
+            // No bar to ask in, so fall back to the dialog.
+            recorder.toggle(mode: mode, client: nil, config: config)
+            return
+        }
+        pendingRecord = mode
+        show(expanding: false)
+        window?.makeKey()
+        send(["type": "ask_url", "mode": mode, "prefill": PanelController.clipboardURL()])
+    }
+
+    /// Prefilled from the clipboard when it holds one, which it usually does:
+    /// someone reporting a page copied its address on the way here. That turns
+    /// the question into a single Return.
+    private static func clipboardURL() -> String {
+        let clip = (NSPasteboard.general.string(forType: .string) ?? "")
+            .trimmingCharacters(in: .whitespacesAndNewlines)
+        let lower = clip.lowercased()
+        guard lower.hasPrefix("http://") || lower.hasPrefix("https://"), clip.count <= 2000 else { return "" }
+        return clip
     }
 
     // MARK: - counts
