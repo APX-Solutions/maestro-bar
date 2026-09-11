@@ -46,21 +46,22 @@ for Screen Recording. Both prompts come from macOS and are granted once.
 ## The bar
 
 `⌘M` shows and hides it. It parks against the right edge of the screen, level
-with the middle: a strip one button wide. The panel opens beside it, for the
-queue, for capturing a thought and for asking the company brain.
+with the middle: a strip one button wide, with the panel shut. Click the
+chevron to open the panel beside it, for the queue, for capturing a thought
+and for asking the company brain.
 
 ```
                                           ┌───┐
    ┌────────────────────────────────────┐ │ ⠿ │  drag it; it returns to an edge
    │ Review                  ‹ 1 of 3 › │ ├───┤
-   │ Follow up on the Ohrid shoot       │ │ M │  open Maestro
-   │ Kupola Media                       │ │ ◉ │  record audio
-   │ Hi Marko, thanks for the call …    │ │ ▣ │  record the screen
-   │ ✓ Done   Dismiss   Send the email  │ │ ‹ │  open and close the panel
-   │                                    │ ├───┤
-   │ ▤ Review 3 · ✎ Capture · ✦ Ask     │ │ ✕ │  put it away
-   │ ┌────────────────────────────────┐ │ └───┘
-   │ │ Tell the agent what to change  │ │  46pt
+   │ Follow up on the Ohrid shoot       │ │ ◉ │  record audio
+   │ Kupola Media                       │ │ ▣ │  record the screen
+   │ Hi Marko, thanks for the call …    │ │ ‹ │  open and close the panel
+   │ ✓ Done   Dismiss   Send the email  │ ├───┤
+   │                                    │ │ ✕ │  put it away
+   │ ▤ Review 3 · ✎ Capture · ✦ Ask     │ └───┘
+   │ ┌────────────────────────────────┐ │  46pt
+   │ │ Tell the agent what to change  │ │
    │ └────────────────────────────────┘ │
    └────────────────────────────────────┘
 ```
@@ -70,7 +71,8 @@ and the button that started it turns red.
 
 Drag the grip to move it; dropped anywhere it returns to the nearer edge, and
 where you leave it is where it comes back. The chevron opens and closes the
-panel, `×` puts the whole thing away, and so does Escape twice.
+panel, and the bar always comes back with it shut. `×` puts the whole thing
+away, and so does Escape twice.
 
 Everything on screen is one web page, in `ui/`, shared with the Windows app —
 so the two look identical and are edited once. `ui/DESIGN.md` says why it looks

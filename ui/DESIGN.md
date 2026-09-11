@@ -31,14 +31,14 @@ uses tabular figures so it does not jitter.
                                           ┌───┐
    ┌────────────────────────────────────┐ │ ⠿ │  drag it; it returns to an edge
    │ Review                  ‹ 1 of 3 › │ ├───┤
-   │ Follow up on the Ohrid shoot       │ │ M │  open Maestro
-   │ Kupola Media                       │ │ ◉ │  record audio
-   │ Hi Marko, thanks for the call …    │ │ ▣ │  record the screen
-   │ ✓ Done   Dismiss   Send the email  │ │ ‹ │  open and close the panel
-   │                                    │ ├───┤
-   │ ▤ Review 3 · ✎ Capture · ✦ Ask     │ │ ✕ │  put it away
-   │ ┌────────────────────────────────┐ │ └───┘
-   │ │ Tell the agent what to change  │ │  46pt
+   │ Follow up on the Ohrid shoot       │ │ ◉ │  record audio
+   │ Kupola Media                       │ │ ▣ │  record the screen
+   │ Hi Marko, thanks for the call …    │ │ ‹ │  open and close the panel
+   │ ✓ Done   Dismiss   Send the email  │ ├───┤
+   │                                    │ │ ✕ │  put it away
+   │ ▤ Review 3 · ✎ Capture · ✦ Ask     │ └───┘
+   │ ┌────────────────────────────────┐ │  46pt
+   │ │ Tell the agent what to change  │ │
    │ └────────────────────────────────┘ │
    └────────────────────────────────────┘
 ```
@@ -53,6 +53,10 @@ Folded, the panel leaves the flow entirely. That matters for more than
 appearance: the window is sized to the page, and a transparent window still
 swallows the clicks underneath it, so a page that stayed 600px wide would
 block a column of the screen that looks empty.
+
+Nothing opens by itself. The bar returns parked and the panel is a click on
+the chevron, because summoning the bar and asking it a question are separate
+thoughts and the second one was getting in the way of the first.
 
 The chips are the only navigation. They say where what you type goes, which
 is why the composer sits directly under them and its placeholder changes with
@@ -78,9 +82,10 @@ motion` stills it.
 open ui/preview.html
 ```
 
-That opens the review queue. For the other states, change the end of the
-address in the browser: `?mock=recording` for a recording in progress,
-`?mock=empty` for nothing waiting, `?mock&os=win` for Windows key labels.
+That opens it parked, the way it starts. For the other states, change the end
+of the address in the browser: `?mock=open` for the panel open on the review
+queue, `?mock=recording` for a recording in progress, `?mock=empty` for
+nothing waiting, `?mock&os=win` for Windows key labels.
 
 `mock.js` pretends to be the native side. It is loaded by `index.html` but
 does nothing unless `?mock` is in the URL.
