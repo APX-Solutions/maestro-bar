@@ -16,6 +16,17 @@ final class KeyPanel: NSPanel {
 final class BarWebView: WKWebView {
     override var mouseDownCanMoveWindow: Bool { false }
     override func acceptsFirstMouse(for event: NSEvent?) -> Bool { true }
+
+    /// Cmd+V, in the bar's own box.
+    ///
+    /// The same hole EditableTextField was written for, in a different window:
+    /// the editing shortcuts are key equivalents on the Edit menu, and this app
+    /// is an accessory with no menu bar to carry one. A web view is no more
+    /// exempt than a text field was — Cmd+V reached nothing, so the one box you
+    /// paste an address into could only be typed into.
+    override func performKeyEquivalent(with event: NSEvent) -> Bool {
+        performEditingShortcut(event, from: self) || super.performKeyEquivalent(with: event)
+    }
 }
 
 /// The command bar: a pill at the top of the screen with a panel beneath it.
