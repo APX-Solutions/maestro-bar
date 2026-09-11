@@ -45,30 +45,32 @@ for Screen Recording. Both prompts come from macOS and are granted once.
 
 ## The bar
 
-`⌘M` shows and hides it. It parks at the top centre of the screen: a pill that
-says whether anything is recording, and a panel under it for the queue, for
-capturing a thought and for asking the company brain.
+`⌘M` shows and hides it. It parks against the right edge of the screen, level
+with the middle: a strip one button wide. The panel opens beside it, for the
+queue, for capturing a thought and for asking the company brain.
 
 ```
- (⠿)  ( M  ● Not recording  [mic] [screen]  ⌃ Hide )  (×)
- ┌────────────────────────────────────────────────────┐
- │ Review                                  ‹ 1 of 3 › │
- │ Follow up on the Ohrid shoot                       │
- │ Kupola Media                                       │
- │ Hi Marko, thanks for the call this morning …       │
- │ ✓ Done   Dismiss   Send the email                  │
- │                                                    │
- │ ▤ Review 3 · ✎ Capture · ✦ Ask                     │
- │ ┌────────────────────────────────────────────────┐ │
- │ │ Tell the agent what to change, or ⌘ ↵ to send  │ │
- │ │ About this card                            (↑) │ │
- │ └────────────────────────────────────────────────┘ │
- └────────────────────────────────────────────────────┘
+                                          ┌───┐
+   ┌────────────────────────────────────┐ │ ⠿ │  drag it; it returns to an edge
+   │ Review                  ‹ 1 of 3 › │ ├───┤
+   │ Follow up on the Ohrid shoot       │ │ M │  open Maestro
+   │ Kupola Media                       │ │ ◉ │  record audio
+   │ Hi Marko, thanks for the call …    │ │ ▣ │  record the screen
+   │ ✓ Done   Dismiss   Send the email  │ │ ‹ │  open and close the panel
+   │                                    │ ├───┤
+   │ ▤ Review 3 · ✎ Capture · ✦ Ask     │ │ ✕ │  put it away
+   │ ┌────────────────────────────────┐ │ └───┘
+   │ │ Tell the agent what to change  │ │  46pt
+   │ └────────────────────────────────┘ │
+   └────────────────────────────────────┘
 ```
 
-Drag the grip to move it; where you leave it is where it comes back. `Hide`
-collapses the panel and leaves the pill. `×` puts the whole thing away, and so
-does Escape twice.
+Idle, the strip says nothing at all. While a recording runs it shows a timer
+and the button that started it turns red.
+
+Drag the grip to move it; dropped anywhere it returns to the nearer edge, and
+where you leave it is where it comes back. The chevron opens and closes the
+panel, `×` puts the whole thing away, and so does Escape twice.
 
 Everything on screen is one web page, in `ui/`, shared with the Windows app —
 so the two look identical and are edited once. `ui/DESIGN.md` says why it looks
@@ -86,8 +88,8 @@ open ui/preview.html
 | Capture | nothing | appends to `~/Recordings/captures.md`, with a microphone |
 | Ask | `/brain/ask` | answers with citations you can click |
 
-The two buttons in the pill start and stop a recording — audio, and screen with
-audio. Only the one that is running turns red, and the pill counts up while it
+The two buttons in the strip start and stop a recording — audio, and screen with
+audio. Only the one that is running turns red, and the strip counts up while it
 does. `record` in the config takes one object or a list of them, so a third
 recorder is a line of JSON.
 

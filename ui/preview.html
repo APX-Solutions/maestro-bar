@@ -4,4 +4,10 @@
 <!-- macOS `open` reads "index.html?mock" as a file path, and no file has that
      name, so the bar's mock mode cannot be reached from a terminal that way.
      `open ui/preview.html` works, and this page adds the query itself. -->
+<style>
+  /* The app sizes its window to the bar; a browser cannot, so this page just
+     puts the bar where the app puts it: against the right edge of the screen. */
+  html { background: #1b2432; min-height: 100%; }
+  body { display: flex; justify-content: flex-end; }
+</style>
 <script>location.replace("index.html?mock");</script>

@@ -21,6 +21,7 @@
     switch (m.type) {
       case "ready":
         send({ type: "state", platform: q.get("os") === "win" ? "win" : "mac", hotkey: "⌘M", api: true,
+          edge: q.get("edge") === "left" ? "left" : "right",
           sections: [
             { id: "review", title: "Review", symbol: "tray.full", hasList: true,
               actions: [{ label: "Done" }, { label: "Dismiss" }, { label: "Send the email" }],
@@ -34,6 +35,7 @@
           ask: { placeholder: "Ask about clients, meetings, decisions" },
           counts: { review: rows.length, board: boardRows.length }, recording: rec });
         if (scenario === "recording") setTimeout(() => window.__mock({ type: "record", mode: "audio" }), 50);
+        if (scenario !== "folded") send({ type: "expand" });
         break;
       case "open": setTimeout(() => send({ type: "rows", section: m.section, rows: (m.section === "board" ? boardRows : rows).slice() }), 350); break;
       case "ask":

@@ -78,7 +78,8 @@
     thread: [],            // ask: [{role:'user'|'assistant', text, citations, error}]
     captures: [],          // this session's captures, newest first
     busy: false,           // an ask is in flight
-    collapsed: false,
+    edge: "right",         // which side of the screen it is parked on
+    collapsed: true,       // parked folded: the panel is asked for, not imposed
   };
 
   // ---- the bridge to the native side -------------------------------------
@@ -104,6 +105,7 @@
     switch (m.type) {
       case "state": {
         state.platform = m.platform || "mac";
+        state.edge = m.edge === "left" ? "left" : "right";
         state.hotkey = m.hotkey || "";
         state.api = m.api !== false;
         state.sections = m.sections || [];
@@ -144,6 +146,8 @@
       }
       case "escape": onEscape(); break;
       case "expand": setCollapsed(false); break;
+      case "fold": setCollapsed(true); break;
+      case "edge": state.edge = m.edge === "left" ? "left" : "right"; applyEdge(); measure(); break;
       default: break;
     }
   }
@@ -181,10 +185,18 @@
 
   function setCollapsed(v) {
     state.collapsed = v;
-    $("#panel").classList.toggle("collapsed", v);
+    $("#root").classList.toggle("folded", v);
     renderPill();
     measure();
     if (!v) setTimeout(() => $("#input").focus(), 30);
+  }
+
+  /// The pill hugs the edge it is parked against, so folding the panel away
+  /// does not slide it sideways.
+  function applyEdge() {
+    const r = $("#root");
+    r.classList.toggle("edge-right", state.edge !== "left");
+    r.classList.toggle("edge-left", state.edge === "left");
   }
 
   function onEscape() {
@@ -204,7 +216,7 @@
   const timeShort = (d) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   // ---- render -------------------------------------------------------------
-  function render() { renderPill(); renderContent(); renderChips(); renderComposer(); measure(); }
+  function render() { applyEdge(); renderPill(); renderContent(); renderChips(); renderComposer(); measure(); }
 
   function renderPill() {
     $("#grip").innerHTML = icons.grip;
@@ -212,14 +224,15 @@
     $("#close").title = `Hide Maestro${state.hotkey ? " (" + state.hotkey + ")" : ""}`;
     $("#logo").innerHTML = icons.logo;
 
+    // Idle, the strip says nothing at all; it is a sidebar, not a dashboard.
     const r = state.recording;
     const st = $("#status");
     st.className = "status" + (r.active ? " live" : "");
     if (r.active) {
-      st.innerHTML = `<span class="dot"></span><span class="wave"><i></i><i></i><i></i><i></i><i></i></span><span class="timer">${esc(r.elapsed || "0:00")}</span>`;
+      st.innerHTML = `<span class="wave"><i></i><i></i><i></i><i></i><i></i></span><span class="timer">${esc(r.elapsed || "0:00")}</span>`;
       st.title = r.mode === "screen" ? "Recording the screen and audio" : "Recording audio";
     } else {
-      st.innerHTML = `<span class="dot"></span><span>Not recording</span>`;
+      st.innerHTML = "";
       st.title = "";
     }
 
@@ -235,10 +248,16 @@
       b.onclick = () => bridge.send({ type: "record", mode: rec.mode });
       acts.appendChild(b);
     }
+    // The chevron points at the panel: towards where it will appear, and back
+    // at the strip when it is already there.
     const waiting = Object.values(state.counts).reduce((a, n) => a + (n || 0), 0);
-    const tog = el("button", "pbtn label");
-    tog.innerHTML = `<span class="chev">${state.collapsed ? icons.chevDown : icons.chevUp}</span><span>${state.collapsed ? "Show" : "Hide"}</span>${state.collapsed && waiting ? `<span class="badge">${waiting}</span>` : ""}`;
-    tog.title = state.collapsed ? "Show the panel" : "Hide the panel";
+    const inward = state.edge === "left" ? icons.chevR : icons.chevL;
+    const outward = state.edge === "left" ? icons.chevL : icons.chevR;
+    const tog = el("button", "pbtn toggle");
+    tog.innerHTML = `${state.collapsed ? inward : outward}${state.collapsed && waiting ? `<span class="badge">${waiting}</span>` : ""}`;
+    tog.title = state.collapsed
+      ? (waiting ? `Open the panel — ${waiting} waiting` : "Open the panel")
+      : "Close the panel";
     tog.onclick = () => setCollapsed(!state.collapsed);
     acts.appendChild(tog);
   }
@@ -461,14 +480,22 @@
   }
 
   // ---- size and drag: the native window follows the content ---------------
-  let lastH = 0, lastW = 0;
+  let lastH = 0, lastW = 0, lastC = 0;
   function measure() {
+    // Folded, the panel is out of the flow, so this is the strip and nothing
+    // more — which is exactly the area the window is allowed to cover.
+    //
+    // `centre` is how far down the strip's own middle sits. The window is
+    // anchored by that rather than by its top, so the strip stays level with
+    // the middle of the screen whatever height the panel happens to be.
     const root = $("#root");
-    const h = state.collapsed ? $("#barRow").offsetHeight + 40 : root.offsetHeight;
+    const bar = $("#barRow");
+    const h = root.offsetHeight;
     const w = root.offsetWidth;
-    if (h !== lastH || w !== lastW) {
-      lastH = h; lastW = w;
-      bridge.send({ type: "size", width: w, height: h });
+    const c = Math.round(bar.offsetTop + bar.offsetHeight / 2);
+    if (h !== lastH || w !== lastW || c !== lastC) {
+      lastH = h; lastW = w; lastC = c;
+      bridge.send({ type: "size", width: w, height: h, centre: c });
     }
   }
   new ResizeObserver(() => measure()).observe(document.body);
@@ -503,6 +530,7 @@
     });
     // typing anywhere in the panel goes to the box
     $("#panel").addEventListener("mousedown", (e) => { if (!e.target.closest("button, a, .c-body, .answer, .bubble")) setTimeout(() => input.focus(), 0); });
+    setCollapsed(state.collapsed);
     render();
     bridge.send({ type: "ready" });
   }
