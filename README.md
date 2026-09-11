@@ -106,11 +106,15 @@ Capture has no endpoint yet, so it appends to a file. When there is one that
 turns a note into a ticket, put its path in `compose.path` and the same box
 starts posting instead. That is the only change needed.
 
-### The bar is not in your screen share
+### Keeping the bar out of a screen share
 
-The window is excluded from screen capture — the same mechanism Zoom uses for
-its own overlays — so it is not in a shared screen, in a call, or in Maestro's
-own screen recordings. `"invisible": false` in the config turns that off.
+By default the bar is on screen like any other window: people you share with
+see it, and it is in Maestro's own screen recordings.
+
+`"invisible": true` in the config hides it from capture — the same mechanism
+Zoom uses for its own overlays — so it stays on your screen and appears in
+nobody else's. Worth turning on for client calls, where your queue is not
+their business, and leaving off the rest of the time.
 
 ### Configuration
 
@@ -119,7 +123,7 @@ own screen recordings. `"invisible": false` in the config turns that off.
   "enabled": true,
   "hotkey": ["cmd", "M"],
   "refresh_seconds": 90,      // how often the counts are refreshed
-  "invisible": true,          // left out of screen shares
+  "invisible": false,         // true hides it from screen shares
   "ask_path": "/brain/ask",   // empty removes the Ask chip
   "ask_placeholder": "Ask about clients, meetings, decisions",
   "record": { "symbol": "record.circle", "mode": "audio", "label": "Record" },

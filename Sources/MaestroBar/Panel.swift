@@ -129,8 +129,10 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
         w.collectionBehavior = [.canJoinAllSpaces, .fullScreenAuxiliary]
         w.delegate = self
         w.onCancel = { [weak self] in self?.send(["type": "escape"]) }
-        // Left out of screen shares and of Maestro's own screen recordings,
-        // the way Zoom's overlays are. Config can switch it off.
+        // On screen by default, in a share as much as anywhere else: the bar
+        // is a thing the team shows each other. `"invisible": true` in the
+        // config hides it from capture the way Zoom hides its own overlays,
+        // for anyone who would rather a client did not see their queue.
         w.sharingType = panelConfig.invisible ? .none : .readOnly
 
         let cfg = WKWebViewConfiguration()

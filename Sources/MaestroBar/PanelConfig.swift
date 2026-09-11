@@ -125,7 +125,7 @@ struct PanelConfig {
     var records: [RecordButton] = []     // one icon each
     var askPath: String = "/brain/ask"   // the Ask box; empty switches it off
     var askPlaceholder: String = "Ask about clients, meetings, decisions"
-    var invisible: Bool = true           // left out of screen shares and recordings
+    var invisible: Bool = false          // true leaves it out of screen shares
 }
 
 extension PanelConfig: Decodable {
