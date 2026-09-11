@@ -34,6 +34,7 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
     private var web: BarWebView?
     private var loaded = false
     private var queued: [[String: Any]] = []
+    private var pendingExpand = false     // asked for before the page was ready
 
     private var rows: [String: [[String: Any]]] = [:]   // section id → raw rows
     private var counts: [String: Int] = [:]
@@ -41,6 +42,7 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
     private var tickTimer: Timer?
     private var dragTimer: Timer?
     private var dragLast = NSPoint.zero
+    private var onRight = true            // which edge it is parked against
 
     // The page reports its own size; the window follows. 600 is the panel
     // plus the room its shadow needs, and the height before the page loads.
@@ -64,7 +66,11 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
 
     func toggle() { isVisible ? hide() : show() }
 
-    func show() {
+    /// `expanding` is the difference between asking for the bar and merely
+    /// putting it back on screen. Reaching for the hot key is asking, so the
+    /// panel opens with the box ready to type in; starting the app is not, so
+    /// it parks folded and waits.
+    func show(expanding: Bool = true) {
         guard panelConfig.enabled else {
             toast("The bar is switched off in maestro-bar.json")
             return
@@ -72,9 +78,14 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
         if window == nil { buildWindow() }
         place()
         window?.orderFrontRegardless()
-        window?.makeKey()
+        if expanding { window?.makeKey() }
         startCounts()
-        if loaded { sendState(); send(["type": "expand"]) }
+        if loaded {
+            sendState()
+            send(["type": expanding ? "expand" : "fold"])
+        } else {
+            pendingExpand = expanding
+        }
     }
 
     func hide() {
@@ -150,32 +161,81 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
         return candidates.first { FileManager.default.fileExists(atPath: $0.path) }
     }
 
+    /// The screen the pointer is on, not the one with keyboard focus.
+    ///
+    /// NSScreen.main is whichever screen holds the focused window, so with two
+    /// displays the bar was placed on one and then clamped to the other, and
+    /// it hung off the edge. Where the pointer is is both stable and what
+    /// someone means by "here".
+    private func currentScreen() -> NSScreen? {
+        let p = NSEvent.mouseLocation
+        return NSScreen.screens.first { $0.frame.contains(p) } ?? NSScreen.main
+    }
+
     private func place() {
         guard let w = window else { return }
-        let vf = NSScreen.main?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
-        var origin: NSPoint
-        if let saved = UserDefaults.standard.string(forKey: "barTopLeft") {
-            let tl = NSPointFromString(saved)
-            origin = NSPoint(x: tl.x, y: tl.y - size.height)
-            let onAScreen = NSScreen.screens.contains { $0.visibleFrame.insetBy(dx: -40, dy: -40).contains(tl) }
-            if !onAScreen { origin = defaultOrigin(in: vf) }
-        } else {
-            origin = defaultOrigin(in: vf)
+        let vf = currentScreen()?.visibleFrame ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        onRight = UserDefaults.standard.object(forKey: "barOnRight") as? Bool ?? true
+        var origin = defaultOrigin(in: vf)
+        // The anchor is the corner against the parked edge, not the left one:
+        // the window is narrow while folded and wide while open, and only the
+        // parked corner is the same point in both.
+        if let saved = UserDefaults.standard.string(forKey: "barAnchor") {
+            let a = NSPointFromString(saved)
+            let onAScreen = NSScreen.screens.contains { $0.visibleFrame.insetBy(dx: -40, dy: -40).contains(a) }
+            if onAScreen {
+                origin = NSPoint(x: onRight ? a.x - size.width : a.x, y: a.y - size.height)
+            }
         }
         w.setFrame(NSRect(origin: origin, size: size), display: true)
     }
 
     private func defaultOrigin(in vf: NSRect) -> NSPoint {
-        // Top centre, a hair below the menu bar: where the eye already is.
-        NSPoint(x: vf.midX - size.width / 2, y: vf.maxY - 4 - size.height)
+        // The right edge, level with the middle of the screen: where the strip
+        // parked before this, and clear of what is being read.
+        NSPoint(x: vf.maxX - size.width, y: vf.midY - size.height / 2)
     }
 
-    private func resize(to newSize: NSSize) {
-        guard let w = window, newSize.height > 0 else { return }
+    /// The page measures itself and the window follows. The parked edge and
+    /// the top stay put, so opening the panel grows it downwards and inwards
+    /// rather than shifting the pill out from under the pointer.
+    private func resize(to newSize: NSSize, stripCentre: CGFloat? = nil) {
+        guard let w = window, newSize.height > 0, newSize.width > 0 else { return }
+        let vf = (w.screen ?? currentScreen())?.visibleFrame
+            ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
         let top = w.frame.maxY
+        let right = w.frame.maxX
         size = newSize
-        w.setFrame(NSRect(x: w.frame.minX, y: top - newSize.height,
-                          width: newSize.width, height: newSize.height), display: true)
+
+        var x = onRight ? right - newSize.width : w.frame.minX
+        // Until someone drags it, the strip sits level with the middle of the
+        // screen — which is the strip's middle, not the window's: the window
+        // is mostly panel once the panel is open.
+        let placed = UserDefaults.standard.string(forKey: "barAnchor") != nil
+        var y = (placed || stripCentre == nil)
+            ? top - newSize.height
+            : vf.midY + stripCentre! - newSize.height
+        if newSize.width <= vf.width { x = min(max(x, vf.minX), vf.maxX - newSize.width) }
+        if newSize.height <= vf.height { y = min(max(y, vf.minY), vf.maxY - newSize.height) }
+        w.setFrame(NSRect(x: x, y: y, width: newSize.width, height: newSize.height), display: true)
+    }
+
+    /// Dropped anywhere, the bar returns to the nearer edge — the placement
+    /// it has always had, and the one that leaves the middle of the screen
+    /// free.
+    private func snap() {
+        guard let w = window else { return }
+        let vf = (w.screen ?? currentScreen())?.visibleFrame
+            ?? NSRect(x: 0, y: 0, width: 1440, height: 900)
+        var f = w.frame
+        onRight = (vf.maxX - f.maxX) <= (f.minX - vf.minX)
+        f.origin.x = onRight ? vf.maxX - f.width : vf.minX
+        f.origin.y = min(max(f.minY, vf.minY), max(vf.minY, vf.maxY - f.height))
+        w.setFrame(f, display: true, animate: true)
+        UserDefaults.standard.set(onRight, forKey: "barOnRight")
+        UserDefaults.standard.set(NSStringFromPoint(NSPoint(x: onRight ? f.maxX : f.minX, y: f.maxY)),
+                                  forKey: "barAnchor")
+        send(["type": "edge", "edge": onRight ? "right" : "left"])
     }
 
     /// The page cannot move the window, so a press on the grip starts this:
@@ -194,8 +254,7 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
             if NSEvent.pressedMouseButtons & 1 == 0 {
                 self.dragTimer?.invalidate()
                 self.dragTimer = nil
-                UserDefaults.standard.set(NSStringFromPoint(NSPoint(x: w.frame.minX, y: w.frame.maxY)),
-                                          forKey: "barTopLeft")
+                self.snap()
             }
         }
         dragTimer = t
@@ -232,6 +291,7 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
             "platform": "mac",
             "hotkey": PanelController.pretty(p.hotkey),
             "api": !config.api.isEmpty,
+            "edge": onRight ? "right" : "left",
             "sections": sections,
             "records": p.records.map { ["mode": $0.mode, "label": $0.label] },
             "counts": counts,
@@ -279,12 +339,14 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
         case "ready":
             loaded = true
             sendState()
+            if pendingExpand { send(["type": "expand"]); pendingExpand = false }
             let pending = queued
             queued = []
             pending.forEach { send($0) }
         case "size":
             if let w = m["width"] as? Double, let h = m["height"] as? Double {
-                resize(to: NSSize(width: w, height: h))
+                resize(to: NSSize(width: w, height: h),
+                       stripCentre: (m["centre"] as? Double).map { CGFloat($0) })
             }
         case "drag": startDrag()
         case "hide": hide()

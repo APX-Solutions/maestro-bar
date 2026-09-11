@@ -103,11 +103,16 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         // so the permission prompts and the layout are seen straight away.
         if config.panel?.enabled ?? false, !UserDefaults.standard.bool(forKey: "seenSidebar") {
             UserDefaults.standard.set(true, forKey: "seenSidebar")
-            panel.show()
+            panel.show(expanding: false)
         }
-        // MAESTRO_SHOW=1 opens the bar at launch: for trying a build without
-        // reaching for the hot key.
-        if ProcessInfo.processInfo.environment["MAESTRO_SHOW"] == "1" { panel.show() }
+        // Puts the bar on screen at launch, for trying a build without
+        // reaching for the hot key: MAESTRO_SHOW=1 parks it the way a normal
+        // start does, MAESTRO_SHOW=open the way the hot key does.
+        switch ProcessInfo.processInfo.environment["MAESTRO_SHOW"] {
+        case "1": panel.show(expanding: false)
+        case "open": panel.show(expanding: true)
+        default: break
+        }
     }
 
     // MARK: - configuration
