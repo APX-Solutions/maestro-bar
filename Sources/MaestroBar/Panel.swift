@@ -66,11 +66,11 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
 
     func toggle() { isVisible ? hide() : show() }
 
-    /// `expanding` is the difference between asking for the bar and merely
-    /// putting it back on screen. Reaching for the hot key is asking, so the
-    /// panel opens with the box ready to type in; starting the app is not, so
-    /// it parks folded and waits.
-    func show(expanding: Bool = true) {
+    /// The bar comes back the way it went away: parked, one button wide, with
+    /// the panel shut. Opening the panel is a click on the chevron and nothing
+    /// else — summoning the bar and asking it a question are separate thoughts,
+    /// and a panel that opened by itself was in the way of the first one.
+    func show(expanding: Bool = false) {
         guard panelConfig.enabled else {
             toast("The bar is switched off in maestro-bar.json")
             return
@@ -368,11 +368,9 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
                 recorder.toggle(mode: mode, client: nil, config: config)
             }
         case "open_url":
-            let given = (m["url"] as? String) ?? ""
-            let target = given.isEmpty
-                ? (config.items.first { $0.type == "open" }?.url ?? "")
-                : given
-            if let u = URL(string: target), !target.isEmpty { NSWorkspace.shared.open(u) }
+            // Citations, and nothing else: the page never asks for a bare URL.
+            let target = (m["url"] as? String) ?? ""
+            if !target.isEmpty, let u = URL(string: target) { NSWorkspace.shared.open(u) }
         case "copy":
             if let text = m["text"] as? String {
                 NSPasteboard.general.clearContents()

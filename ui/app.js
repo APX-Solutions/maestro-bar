@@ -45,7 +45,6 @@
     copy: I('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 011-1h10"/>'),
     link: I('<path d="M14 4h6v6M20 4l-9 9M18 13v6a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h6"/>'),
     external: I('<path d="M14 4h6v6M20 4l-9 9"/>'),
-    logo: '<svg width="24" height="24" viewBox="0 0 24 24" fill="none"><circle cx="12" cy="12" r="10" stroke="currentColor" stroke-width="1.8"/><path d="M7.5 16V8.5l4.5 5 4.5-5V16" stroke="currentColor" stroke-width="1.8" stroke-linecap="round" stroke-linejoin="round"/></svg>',
   };
   // SF Symbol names in bar.json → the drawn set. Unknown names get a spark.
   const symbolIcon = (name = "") => {
@@ -222,7 +221,6 @@
     $("#grip").innerHTML = icons.grip;
     $("#close").innerHTML = icons.close;
     $("#close").title = `Hide Maestro${state.hotkey ? " (" + state.hotkey + ")" : ""}`;
-    $("#logo").innerHTML = icons.logo;
 
     // Idle, the strip says nothing at all; it is a sidebar, not a dashboard.
     const r = state.recording;
@@ -513,7 +511,6 @@
     bindDrag($("#grip"));
     bindDrag($("#pill"));
     $("#close").onclick = () => bridge.send({ type: "hide" });
-    $("#logo").onclick = () => bridge.send({ type: "open_url", url: "" });
     $("#send").onclick = send;
     const input = $("#input");
     input.addEventListener("input", autosize);

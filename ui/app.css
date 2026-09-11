@@ -116,15 +116,6 @@ a { color: inherit; }
   background: var(--glass);
   box-shadow: 0 0 0 1px var(--ring), 0 -0.5px 0 0 var(--edge) inset, var(--shadow);
 }
-.logo {
-  width: 32px; height: 32px;
-  border-radius: 999px;
-  display: flex; align-items: center; justify-content: center;
-  color: #fff;
-  transition: transform 120ms ease-out;
-}
-.logo:hover { transform: scale(1.05); }
-
 /* Idle, the strip says nothing. Live, it says the one thing worth saying. */
 .status { display: none; }
 .status.live {

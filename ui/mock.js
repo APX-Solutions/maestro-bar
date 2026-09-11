@@ -35,7 +35,8 @@
           ask: { placeholder: "Ask about clients, meetings, decisions" },
           counts: { review: rows.length, board: boardRows.length }, recording: rec });
         if (scenario === "recording") setTimeout(() => window.__mock({ type: "record", mode: "audio" }), 50);
-        if (scenario !== "folded") send({ type: "expand" });
+        // The app never opens the panel by itself, and neither does this.
+        if (scenario === "open") send({ type: "expand" });
         break;
       case "open": setTimeout(() => send({ type: "rows", section: m.section, rows: (m.section === "board" ? boardRows : rows).slice() }), 350); break;
       case "ask":
