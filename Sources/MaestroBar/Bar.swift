@@ -107,10 +107,12 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         }
         // Puts the bar on screen at launch, for trying a build without
         // reaching for the hot key: MAESTRO_SHOW=1 parks it the way a normal
-        // start does, MAESTRO_SHOW=open the way the hot key does.
+        // start does, =open the way the chevron does, =ask the way pressing
+        // record does.
         switch ProcessInfo.processInfo.environment["MAESTRO_SHOW"] {
         case "1": panel.show(expanding: false)
         case "open": panel.show(expanding: true)
+        case "ask": panel.requestRecording(mode: "screen")
         default: break
         }
     }
@@ -137,7 +139,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             guard let spec = item.hotkey, let mode = item.mode else { continue }
             if let hk = HotKey(spec: spec, handler: { [weak self] in
                 guard let self = self else { return }
-                self.recorder.toggle(mode: mode, client: nil, config: self.config)
+                self.panel.requestRecording(mode: mode)
             }) {
                 hotkeys.append(hk)
             } else {
@@ -249,7 +251,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
                 let mode = item.mode ?? "audio"
                 let mi = menuItem(item.label ?? "Record") { [weak self] in
                     guard let self = self else { return }
-                    self.recorder.toggle(mode: mode, client: nil, config: self.config)
+                    self.panel.requestRecording(mode: mode)
                 }
                 if let spec = item.hotkey { mi.toolTip = spec.joined(separator: " + ") }
                 mi.isEnabled = !busy

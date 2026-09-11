@@ -6,7 +6,7 @@
   if (!q.has("mock")) return;
   const scenario = q.get("mock") || "";
   const send = (m) => setTimeout(() => window.maestro.receive(m), 0);
-  let rec = { active: false, mode: "", elapsed: "" }, t0 = 0, tick = null;
+  let rec = { active: false, mode: "", elapsed: "" }, t0 = 0, tick = null, pending = "";
   const rows = scenario === "empty" ? [] : [
     { id: "a1", title: "Follow up on the Ohrid shoot", subtitle: "Kupola Media", body: "Hi Marko, thanks for the call this morning. As discussed, here is the revised quote for the two-day shoot in Ohrid with the drone unit included. The dates you asked about are open on our side." },
     { id: "a2", title: "Send the proposal to Tamara", subtitle: "Visible", body: "Attach the GEO framework deck and the scoring methodology. She asked for it by Thursday." },
@@ -45,8 +45,14 @@
           citations: [{ n: 1, source: "gmail", title: "Re: Ohrid shoot — quote v2", url: "https://mail.google.com" }, { n: 2, source: "meeting", title: "Call with Marko, 3 Sep", url: "" }, { n: 3, source: "slack", title: "#sales · quote thread", url: "https://slack.com" }] }), 1100);
         break;
       case "record":
+        // The app asks where the recording is before it starts one, so this
+        // does too.
+        if (!rec.active) { pending = m.mode; send({ type: "ask_url", mode: m.mode, prefill: "https://trello.com/b/lK7A4EEE/ai-ugc-ads" }); break; }
+        window.__mock({ type: "url_answer", url: "", mode: m.mode });
+        break;
+      case "url_answer":
         if (rec.active) { rec = { active: false, mode: "", elapsed: "" }; clearInterval(tick); send({ type: "recording", ...rec }); send({ type: "toast", text: "Saved 2026-09-10-14-05.m4a, processing now" }); }
-        else { rec = { active: true, mode: m.mode, elapsed: "0:00" }; t0 = Date.now() - (scenario === "recording" ? 84000 : 0); send({ type: "recording", ...rec });
+        else { rec = { active: true, mode: m.mode || pending, elapsed: "0:00" }; t0 = Date.now() - (scenario === "recording" ? 84000 : 0); send({ type: "recording", ...rec });
           tick = setInterval(() => { const s = Math.floor((Date.now() - t0) / 1000); rec.elapsed = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, "0")}`; send({ type: "recording", ...rec }); }, 1000); }
         break;
       case "action": send({ type: "toast", text: (m.section === "board" ? ["Kept", "Undone on Trello"] : ["Marked done", "Dismissed", "Sent"])[m.index] || "Done" }); break;

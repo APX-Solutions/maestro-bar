@@ -78,6 +78,7 @@
     captures: [],          // this session's captures, newest first
     busy: false,           // an ask is in flight
     edge: "right",         // which side of the screen it is parked on
+    askUrl: null,          // {mode} while the bar is asking where a recording is
     collapsed: true,       // parked folded: the panel is asked for, not imposed
   };
 
@@ -143,6 +144,19 @@
         renderContent();
         break;
       }
+      case "ask_url": {
+        // A recording is about to start and the one thing it cannot capture
+        // is the address of what is on screen. Ask here rather than in a
+        // system dialog: the same question, inside the thing you just clicked.
+        state.askUrl = { mode: m.mode || "audio" };
+        setCollapsed(false);
+        render();
+        const box = $("#input");
+        box.value = m.prefill || "";
+        autosize();
+        setTimeout(() => { box.focus(); box.select(); }, 30);
+        break;
+      }
       case "escape": onEscape(); break;
       case "expand": setCollapsed(false); break;
       case "fold": setCollapsed(true); break;
@@ -199,6 +213,7 @@
   }
 
   function onEscape() {
+    if (state.askUrl) { answerUrl(""); return; }   // Escape is Skip, and records
     if (!state.collapsed) setCollapsed(true);
     else bridge.send({ type: "hide" });
   }
@@ -263,6 +278,7 @@
   function renderChips() {
     const c = $("#chips");
     c.innerHTML = "";
+    if (state.askUrl) return;      // one question at a time
     const items = state.sections.map((s) => ({ id: s.id, title: s.title, icon: symbolIcon(s.symbol), n: s.hasList ? state.counts[s.id] || 0 : 0 }));
     if (state.ask) items.push({ id: ASK, title: "Ask", icon: icons.spark, n: 0 });
     items.forEach((it, i) => {
@@ -278,6 +294,11 @@
   function renderContent() {
     const box = $("#scroll");
     box.innerHTML = "";
+    if (state.askUrl) {
+      box.appendChild(emptyState("Where is this?",
+        "Paste the address of the page you are recording, or skip it. The recording starts either way."));
+      return measure();
+    }
     if (state.active === ASK) return renderThread(box);
     const s = activeSection();
     if (!s) { box.appendChild(emptyState("Nothing to show", "Add a section to bar.json and reload the config.")); return measure(); }
@@ -385,6 +406,7 @@
   }
 
   function renderComposer() {
+    if (state.askUrl) return renderUrlComposer();
     const s = activeSection();
     const ph = $("#ph");
     const canType = state.active === ASK || !!(s && s.compose);
@@ -402,6 +424,24 @@
     $("#send").disabled = !canType;
     $("#send").innerHTML = icons.send;
     renderTools();
+  }
+
+  /// The box, while it is asking where a recording is: an address to paste,
+  /// Send to record with it and Skip to record without.
+  function renderUrlComposer() {
+    const ph = $("#ph");
+    ph.innerHTML = `<span>https://…</span>`;
+    ph.hidden = $("#input").value.length > 0;
+    $("#input").disabled = false;
+    $("#send").disabled = false;
+    $("#send").innerHTML = icons.send;
+    $("#send").title = "Start recording";
+    const left = $("#toolsLeft");
+    left.innerHTML = "";
+    const skip = el("button", "tool", "<span>Skip</span>");
+    skip.title = "Record without an address";
+    skip.onclick = () => answerUrl("");
+    left.appendChild(skip);
   }
 
   function renderTools() {
@@ -447,9 +487,23 @@
     renderContent(); renderChips(); renderTools();
   }
 
+  /// Send and Skip both start the recording; only one of them carries an
+  /// address. Either way the panel closes, because answering was the only
+  /// reason it was open.
+  function answerUrl(url) {
+    const mode = state.askUrl ? state.askUrl.mode : "audio";
+    state.askUrl = null;
+    $("#input").value = "";
+    autosize();
+    bridge.send({ type: "url_answer", url: url, mode: mode });
+    render();
+    setCollapsed(true);
+  }
+
   function send() {
     const input = $("#input");
     const text = input.value.trim();
+    if (state.askUrl) { answerUrl(text); return; }
     if (!text) return;
     if (state.active === ASK) {
       if (state.busy) return;
