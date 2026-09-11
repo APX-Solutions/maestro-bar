@@ -1,6 +1,6 @@
 import AppKit
 
-/// Text fields that accept Cmd+V.
+/// Cmd+V, and the rest of the editing shortcuts, for a menu-less app.
 ///
 /// The standard editing shortcuts are not built into NSTextField. They are key
 /// equivalents on the Edit menu, and this app is an accessory (LSUIElement)
@@ -11,7 +11,7 @@ import AppKit
 ///
 /// The action is sent to nil so it travels the responder chain and arrives at
 /// the field editor, which is the object that actually performs the edit.
-private func performEditingShortcut(_ event: NSEvent, from view: NSView) -> Bool {
+func performEditingShortcut(_ event: NSEvent, from view: NSView) -> Bool {
     guard event.modifierFlags.intersection(.deviceIndependentFlagsMask) == .command,
           let key = event.charactersIgnoringModifiers?.lowercased() else { return false }
     let action: Selector
