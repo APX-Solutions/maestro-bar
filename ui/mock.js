@@ -33,9 +33,6 @@
         send({ type: "state", platform: q.get("os") === "win" ? "win" : "mac", hotkey: "⌘M", api: true,
           edge: q.get("edge") === "left" ? "left" : "right",
           sections: [
-            { id: "review", title: "Review", symbol: "tray.full", hasList: true,
-              actions: [{ label: "Done" }, { label: "Dismiss" }, { label: "Send the email" }],
-              compose: { placeholder: "Tell the agent what to change", record: false } },
             { id: "board", title: "Board", symbol: "board", hasList: true,
               actions: [{ label: "Keep" }, { label: "Undo all" }], compose: null },
             { id: "storyboards", title: "Storyboards", symbol: "film", hasList: true, live: 5, watch: true,
@@ -46,7 +43,7 @@
           ],
           records: [{ mode: "audio", label: "Record audio" }, { mode: "screen", label: "Record screen and audio" }],
           ask: { placeholder: "Ask about clients, meetings, decisions" },
-          counts: { review: rows.length, board: boardRows.length, storyboards: studioRows.length }, recording: rec });
+          counts: { board: boardRows.length, storyboards: studioRows.length }, recording: rec });
         if (scenario === "sent") setTimeout(() => send({ type: "sent" }), 400);
         if (scenario === "recording") setTimeout(() => window.__mock({ type: "record", mode: "audio" }), 50);
         // The app never opens the panel by itself, and neither does this.
