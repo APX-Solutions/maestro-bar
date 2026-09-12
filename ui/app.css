@@ -224,6 +224,50 @@ a { color: inherit; }
 .act.primary { color: var(--text); box-shadow: 0 0 0 1px rgba(129, 182, 255, 0.45) inset; }
 .act.primary:hover { background: rgba(5, 68, 169, 0.35); }
 
+/* a run in progress: the bar, the time left, the steps */
+.c-prog {
+  height: 3px; border-radius: 2px; margin-top: 10px; overflow: hidden;
+  background: rgba(237, 238, 242, 0.12);
+}
+.c-prog i {
+  display: block; height: 100%; border-radius: 2px;
+  background: linear-gradient(90deg, var(--accent-top) 0%, #4d8ff0 100%);
+  transition: width 600ms ease-out;
+}
+.c-prog.indeterminate i {
+  width: 38% !important;
+  background: linear-gradient(90deg, rgba(129,182,255,0) 0%, var(--accent-top) 50%, rgba(129,182,255,0) 100%);
+  animation: slide 1.4s ease-in-out infinite;
+}
+@keyframes slide { from { transform: translateX(-120%); } to { transform: translateX(300%); } }
+.c-eta { font-size: 11px; color: var(--muted); margin-top: 5px; font-variant-numeric: tabular-nums; }
+.c-steps { list-style: none; margin: 8px 0 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+.c-steps li { display: flex; align-items: center; gap: 8px; min-height: 20px; font-size: 12px; color: var(--muted); }
+.c-steps li i {
+  flex: none; width: 6px; height: 6px; border-radius: 999px;
+  background: rgba(237, 238, 242, 0.28);
+}
+.c-steps li.running { color: var(--text); }
+.c-steps li.running i { background: var(--accent-top); animation: blink 1.2s ease-in-out infinite; }
+.c-steps li.done { color: var(--text); }
+.c-steps li.done i { background: #6fcf97; }
+.c-steps li.failed i { background: var(--record); }
+.c-steps li .l { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.c-steps li .n { color: var(--dim); font-size: 11px; white-space: nowrap; font-variant-numeric: tabular-nums; }
+.c-steps li.failed .n { color: #ffb3ad; white-space: normal; }
+.c-steps li .lnk { margin-left: auto; width: 22px; height: 22px; border-radius: 999px; display: flex; align-items: center; justify-content: center; color: var(--dim); }
+.c-steps li .lnk:hover { background: var(--hover); color: var(--text); }
+.st-failed .c-body, .st-partial .c-body { color: #ffb3ad; }
+
+/* a recording on its way to Maestro */
+.sending { display: flex; align-items: center; gap: 8px; font-size: 12px; color: var(--muted); padding: 2px 0 10px; }
+.sending .pulse {
+  flex: none; width: 8px; height: 8px; border-radius: 999px; background: var(--accent-top);
+  box-shadow: 0 0 0 0 rgba(129, 182, 255, 0.6);
+  animation: pulse 1.6s ease-out infinite;
+}
+@keyframes pulse { 0% { box-shadow: 0 0 0 0 rgba(129, 182, 255, 0.55); } 100% { box-shadow: 0 0 0 8px rgba(129, 182, 255, 0); } }
+
 /* empty and loading states */
 .empty { padding: 6px 0 4px; }
 .empty .t { font-size: 13px; font-weight: 500; color: var(--text); }
@@ -298,6 +342,11 @@ a { color: inherit; }
   background: var(--accent); color: #fff; box-shadow: 0 0 0 0.5px var(--accent-ring);
 }
 .sep { width: 3px; height: 3px; border-radius: 999px; background: var(--dim); }
+/* Five chips do not fit on one line with room to breathe; the dots between
+   them go first, then the padding, and the row stays a row. */
+.chips.many { column-gap: 2px; }
+.chips.many .sep { display: none; }
+.chips.many .chip { padding: 0 7px 0 6px; }
 
 /* the composer */
 .composer { padding: 0 12px 12px; }

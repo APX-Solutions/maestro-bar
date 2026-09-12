@@ -100,3 +100,24 @@ nothing waiting, `?mock&os=win` for Windows key labels.
 
 `mock.js` pretends to be the native side. It is loaded by `index.html` but
 does nothing unless `?mock` is in the URL.
+
+## A card that is still happening
+
+Most cards are a thing waiting for a decision. A Storyboards card is a thing
+in progress, and it says so: a thin bar in the accent colour, the time left
+under it in tabular figures, and one line per step with a dot that is grey
+before, breathing blue during, green after and red if it failed. The link
+sits at the end of the step's line the moment the job exists, because the
+storyboard is watchable long before it is finished.
+
+The section fetches itself again every few seconds while any of its cards is
+live, and stops the moment none is. Nothing else in the bar polls faster than
+the counts.
+
+A recording on its way shows as one line with a pulse above the cards, in the
+section that watches recordings, until its own card arrives. That is the
+whole of the feedback between "stop" and "here is the plan": the bar does not
+open by itself for it.
+
+Five chips do not fit on one row with dots between them, so with five or more
+the dots go and the chips sit closer. The row stays a row.

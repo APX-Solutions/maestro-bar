@@ -94,6 +94,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         statusItem.menu = menu
 
         recorder.onChange = { [weak self] in self?.stateChanged() }
+        recorder.onSent = { [weak self] in self?.panel.recordingSent() }
         BarConfig.installDefaultIfMissing()
         // Runs before the config is read, so an upgraded install picks up the
         // corrected command on this launch rather than the next one.
