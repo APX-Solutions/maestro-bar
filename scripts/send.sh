@@ -115,7 +115,8 @@ elif [ "$ROUTED" = "studio" ]; then
   STATUS="$(jget status "$OUT")"
   SUMMARY="$(jget summary "$OUT")"
   case "$STATUS" in
-    proposed)    MSG="Plan ready in the bar: ${SUMMARY:-storyboards} — press Go" ;;
+    running)     MSG="On it: ${SUMMARY:-storyboards} — the bar shows progress" ;;
+    proposed)    MSG="Waiting for Go in the bar: ${SUMMARY:-storyboards}" ;;
     needs_brand) MSG="Which brand? Open the bar and type it under the card" ;;
     *)           MSG="Could not plan that: ${REASON:-$STATUS}" ;;
   esac
