@@ -19,12 +19,24 @@ final class API {
         self.tokenService = tokenService
     }
 
+    /// The keychain first, then ~/.maestro/token — the same order send.sh
+    /// reads them in. install.sh writes only the file, so an app that read
+    /// only the keychain had a panel that answered 401 to everything while
+    /// recordings went through fine. One token, two readers, one order.
+    static func token(service: String) -> String? {
+        if let t = Keychain.read(service: service), !t.isEmpty { return t }
+        let path = (NSHomeDirectory() as NSString).appendingPathComponent(".maestro/token")
+        guard let s = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
+        let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
+        return t.isEmpty ? nil : t
+    }
+
     private func request(_ path: String, method: String, body: Data?) -> URLRequest? {
         guard !base.isEmpty, let url = URL(string: base + path) else { return nil }
         var r = URLRequest(url: url)
         r.httpMethod = method
         r.timeoutInterval = 20
-        if let t = Keychain.read(service: tokenService) {
+        if let t = API.token(service: tokenService) {
             r.setValue("Bearer " + t, forHTTPHeaderField: "Authorization")
         }
         if let b = body {
