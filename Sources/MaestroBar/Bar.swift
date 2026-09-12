@@ -80,6 +80,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var hotkeys: [HotKey] = []
     private var badgeTimer: Timer?
+    private var screenWatch: Timer?
     private var tickTimer: Timer?
     private var badgeCount: Int?
     private var clients: [Client] = []
@@ -106,6 +107,7 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             UserDefaults.standard.set(true, forKey: "seenSidebar")
             panel.show(expanding: false)
         }
+        askForScreenIfNeeded()
         // Puts the bar on screen at launch, for trying a build without
         // reaching for the hot key: MAESTRO_SHOW=1 parks it the way a normal
         // start does, =open the way the chevron does, =ask the way pressing
@@ -115,6 +117,57 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
         case "open": panel.show(expanding: true)
         case "ask": panel.requestRecording(mode: "screen")
         default: break
+        }
+    }
+
+    // MARK: - screen recording, asked for at a sensible moment
+
+    /// Every update is a different app to macOS. The bundle is signed ad hoc,
+    /// so its identity changes with the code, and `update.sh` clears the old
+    /// grant on purpose: a stale one shows as ON in System Settings while
+    /// capture still fails, which is the worst of both.
+    ///
+    /// The cost of that honesty is one grant per update. This makes it happen
+    /// at the only predictable moment — once, at launch, right after the
+    /// update — instead of ambushing someone the first time they reach for a
+    /// recording. It also puts the app in the Settings list straight away,
+    /// which is where people go looking when it is missing.
+    private func askForScreenIfNeeded() {
+        let build = Bundle.main.infoDictionary?["CFBundleVersion"] as? String ?? "0"
+        let key = "screenAskedForBuild"
+        guard UserDefaults.standard.string(forKey: key) != build else { return }
+        UserDefaults.standard.set(build, forKey: key)     // once per build, never a nag
+        guard !CGPreflightScreenCaptureAccess() else { return }
+        _ = CGRequestScreenCaptureAccess()
+        watchForScreenGrant()
+    }
+
+    /// macOS applies the grant only to a newly launched process, so the app
+    /// restarts itself the moment it lands. That step used to be a line in a
+    /// README, which is to say it used to not happen.
+    private func watchForScreenGrant() {
+        screenWatch?.invalidate()
+        let giveUp = Date().addingTimeInterval(180)
+        let t = Timer(timeInterval: 2, repeats: true) { [weak self] timer in
+            guard let self = self else { timer.invalidate(); return }
+            if Date() > giveUp { timer.invalidate(); self.screenWatch = nil; return }
+            guard CGPreflightScreenCaptureAccess() else { return }
+            timer.invalidate()
+            self.screenWatch = nil
+            // Never mid-recording: restarting would throw the file away.
+            guard !self.recorder.isRecording else { return }
+            toast("Screen recording allowed. Restarting Maestro Bar to apply it.")
+            DispatchQueue.main.asyncAfter(deadline: .now() + 1.5) { self.relaunch() }
+        }
+        screenWatch = t
+        RunLoop.main.add(t, forMode: .common)
+    }
+
+    private func relaunch() {
+        let cfg = NSWorkspace.OpenConfiguration()
+        cfg.createsNewApplicationInstance = true
+        NSWorkspace.shared.openApplication(at: Bundle.main.bundleURL, configuration: cfg) { _, _ in
+            DispatchQueue.main.async { NSApp.terminate(nil) }
         }
     }
 
