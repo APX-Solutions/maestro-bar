@@ -1,7 +1,7 @@
 # The bar, as designed
 
-One page, shown by both apps. What it is for: recording, the review queue,
-capturing a thought, and asking the company brain — from a strip that stays
+One page, shown by both apps. What it is for: recording, the board, the
+storyboards, capturing a thought, and asking the company brain — from a strip that stays
 out of the way at the top of the screen.
 
 ## Material
@@ -121,3 +121,10 @@ open by itself for it.
 
 Five chips do not fit on one row with dots between them, so with five or more
 the dots go and the chips sit closer. The row stays a row.
+
+## What is not in the bar
+
+The sales review queue. The bar goes to people who are not Maestro users —
+a machine token is an identity for recording, not a login — and a queue of
+draft replies to clients is not theirs to read. It is a Maestro page, and
+stays one.
