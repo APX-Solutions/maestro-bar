@@ -6,7 +6,13 @@
  *   web → native   ready · open · action · compose · ask · record · hide ·
  *                  drag · size · focus · open_url · copy
  *   native → web   state · rows · counts · recording · toast · answer ·
- *                  answer_error · escape
+ *                  answer_error · escape · sent
+ *
+ * A card may carry more than its three lines: `status`, `progress` (0..1),
+ * `eta`, `url`, `steps` [{label, state, note?, url?}], `actions` (which of
+ * the section's buttons apply) and `live` (fetch this section again in a few
+ * seconds). A section with `live` seconds is polled while any card is live;
+ * one with `watch` is where a recording that was just sent shows up.
  *
  * Nothing here knows an endpoint. Sections, their actions and their compose
  * boxes arrive in `state`, straight from bar.json.
@@ -45,11 +51,13 @@
     copy: I('<rect x="9" y="9" width="11" height="11" rx="2"/><path d="M5 15V5a1 1 0 011-1h10"/>'),
     link: I('<path d="M14 4h6v6M20 4l-9 9M18 13v6a1 1 0 01-1 1H5a1 1 0 01-1-1V7a1 1 0 011-1h6"/>'),
     external: I('<path d="M14 4h6v6M20 4l-9 9"/>'),
+    film: I('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>'),
   };
   // SF Symbol names in bar.json → the drawn set. Unknown names get a spark.
   const symbolIcon = (name = "") => {
     const n = name.toLowerCase();
     if (n.includes("board") || n.includes("kanban")) return icons.board;
+    if (n.includes("film") || n.includes("story") || n.includes("clapper")) return icons.film;
     if (n.includes("tray") || n.includes("inbox")) return icons.inbox;
     if (n.includes("pencil") || n.includes("square.and")) return icons.pencil;
     if (n.includes("mic")) return icons.mic;
@@ -80,6 +88,9 @@
     edge: "right",         // which side of the screen it is parked on
     askUrl: null,          // {mode} while the bar is asking where a recording is
     collapsed: true,       // parked folded: the panel is asked for, not imposed
+    sending: null,         // {section, ids, at} while a recording is on its way to Maestro
+    liveTimer: null,       // the poll, while a card is live
+    liveFor: null,         // which section that poll is for
   };
 
   // ---- the bridge to the native side -------------------------------------
@@ -122,10 +133,22 @@
         break;
       }
       case "rows": {
-        state.rows[m.section] = m.rows || [];
-        state.index[m.section] = 0;
+        // A refresh keeps the card they were looking at: a live section
+        // reloads every few seconds, and jumping to the first card each time
+        // would make the third one unreadable.
+        const before = state.rows[m.section];
+        const heldId = before ? (before[state.index[m.section] || 0] || {}).id : null;
+        const rows = m.rows || [];
+        state.rows[m.section] = rows;
+        const j = heldId ? rows.findIndex((r) => r.id === heldId) : -1;
+        state.index[m.section] = j >= 0 ? j : Math.min(state.index[m.section] || 0, Math.max(0, rows.length - 1));
         state.loading[m.section] = false;
-        state.counts[m.section] = (m.rows || []).length;
+        state.counts[m.section] = rows.length;
+        if (state.sending && state.sending.section === m.section) {
+          // The recording has arrived as a card: the banner has done its job.
+          if (rows.some((r) => !state.sending.ids.has(r.id))) state.sending = null;
+          else if (Date.now() - state.sending.at > 4 * 60 * 1000) state.sending = null;
+        }
         render();
         break;
       }
@@ -158,6 +181,19 @@
         break;
       }
       case "escape": onEscape(); break;
+      case "sent": {
+        // A recording is on its way. The section that watches recordings
+        // says so and polls until the card for it appears.
+        const w = state.sections.find((x) => x.watch);
+        if (!w) break;
+        state.sending = { section: w.id, ids: new Set((state.rows[w.id] || []).map((r) => r.id)), at: Date.now() };
+        if (state.rows[w.id] === undefined && !state.loading[w.id]) {
+          state.loading[w.id] = true;
+          bridge.send({ type: "open", section: w.id });
+        }
+        render();
+        break;
+      }
       case "expand": setCollapsed(false); break;
       case "fold": setCollapsed(true); break;
       case "edge": state.edge = m.edge === "left" ? "left" : "right"; applyEdge(); measure(); break;
@@ -230,7 +266,27 @@
   const timeShort = (d) => d.toLocaleTimeString([], { hour: "2-digit", minute: "2-digit" });
 
   // ---- render -------------------------------------------------------------
-  function render() { applyEdge(); renderPill(); renderContent(); renderChips(); renderComposer(); measure(); }
+  function render() { applyEdge(); renderPill(); renderContent(); renderChips(); renderComposer(); measure(); syncLive(); }
+
+  /// Fetch a section again every few seconds while one of its cards is live
+  /// (a run in progress, a recording being read) or a recording was just
+  /// sent. Stops the moment nothing is moving, so an idle bar makes no calls.
+  function syncLive() {
+    const s = state.sending ? section(state.sending.section) : activeSection();
+    const want = !!(s && s.hasList && (
+      (state.rows[s.id] || []).some((r) => r.live) || (state.sending && state.sending.section === s.id)));
+    if (state.liveTimer && (!want || state.liveFor !== s.id)) {
+      clearInterval(state.liveTimer);
+      state.liveTimer = null; state.liveFor = null;
+    }
+    if (want && !state.liveTimer) {
+      const every = Math.max(3, Number(s.live) || 5) * 1000;
+      state.liveFor = s.id;
+      state.liveTimer = setInterval(() => {
+        if (!state.loading[s.id]) bridge.send({ type: "open", section: s.id });
+      }, every);
+    }
+  }
 
   function renderPill() {
     $("#grip").innerHTML = icons.grip;
@@ -281,6 +337,7 @@
     if (state.askUrl) return;      // one question at a time
     const items = state.sections.map((s) => ({ id: s.id, title: s.title, icon: symbolIcon(s.symbol), n: s.hasList ? state.counts[s.id] || 0 : 0 }));
     if (state.ask) items.push({ id: ASK, title: "Ask", icon: icons.spark, n: 0 });
+    c.classList.toggle("many", items.length > 4);
     items.forEach((it, i) => {
       if (i > 0) c.appendChild(el("span", "sep"));
       const b = el("button", "chip" + (state.active === it.id ? " on" : ""));
@@ -318,8 +375,15 @@
       box.appendChild(el("div", "skeleton", "<i style='width:62%'></i><i style='width:38%'></i><i style='width:92%'></i><i style='width:84%'></i>"));
       return;
     }
+    if (state.sending && state.sending.section === s.id) {
+      const b = el("div", "sending");
+      b.innerHTML = `<span class="pulse"></span><span>Sending your recording. The plan shows up here once it has been read.</span>`;
+      box.appendChild(b);
+    }
     if (!rows.length) {
-      box.appendChild(emptyState("Nothing waiting", state.api ? "New cards land here when the agent has something for you." : "No API is configured in bar.json."));
+      if (state.sending && state.sending.section === s.id) return;
+      if (s.watch) box.appendChild(emptyState("Say what you want made", "Press record, describe the storyboards or the changes, stop. What was understood, what it costs and how long it takes show up here."));
+      else box.appendChild(emptyState("Nothing waiting", state.api ? "New cards land here when the agent has something for you." : "No API is configured in bar.json."));
       return;
     }
     const i = state.index[s.id] || 0;
@@ -334,20 +398,46 @@
     head.appendChild(nav);
     box.appendChild(head);
 
-    const card = el("div", "card");
-    card.innerHTML = `<div class="c-title">${esc(row.title || "Untitled")}</div>${row.subtitle ? `<div class="c-sub">${esc(row.subtitle)}</div>` : ""}${row.body ? `<div class="c-body">${esc(row.body)}</div>` : ""}`;
+    const card = el("div", "card" + (row.status ? " st-" + esc(row.status) : ""));
+    let html = `<div class="c-title">${esc(row.title || "Untitled")}</div>`;
+    if (row.subtitle) html += `<div class="c-sub">${esc(row.subtitle)}</div>`;
+    if (typeof row.progress === "number") {
+      // A run in progress. The bar is the truth as of the last poll; the
+      // words under it say what is happening and how long is left.
+      const pct = Math.round(Math.max(0.02, Math.min(1, row.progress)) * 100);
+      html += `<div class="c-prog${row.status === "reading" ? " indeterminate" : ""}"><i style="width:${pct}%"></i></div>`;
+      if (row.eta) html += `<div class="c-eta">${esc(row.eta)}</div>`;
+    }
+    if (row.body) html += `<div class="c-body">${esc(row.body)}</div>`;
+    if (row.steps && row.steps.length) {
+      html += `<ul class="c-steps">` + row.steps.map((st) =>
+        `<li class="${esc(st.state || "pending")}"><i></i><span class="l">${esc(st.label)}</span>` +
+        (st.note ? `<span class="n">${esc(st.note)}</span>` : "") +
+        (st.url ? `<button class="lnk" data-url="${esc(st.url)}" title="Open">${icons.external}</button>` : "") +
+        `</li>`).join("") + `</ul>`;
+    }
+    card.innerHTML = html;
+    card.querySelectorAll(".lnk").forEach((b) => { b.onclick = () => bridge.send({ type: "open_url", url: b.dataset.url }); });
     box.appendChild(card);
 
-    if (s.actions && s.actions.length) {
-      const acts = el("div", "acts");
-      s.actions.forEach((a, k) => {
-        const b = el("button", "act" + (k === 0 ? " primary" : ""));
-        b.innerHTML = `${k === 0 ? icons.check : ""}<span>${esc(a.label)}</span>`;
-        b.onclick = () => perform(s, k);
-        acts.appendChild(b);
-      });
-      box.appendChild(acts);
+    // Which buttons: the section's, unless the card says which of them apply.
+    const allowed = Array.isArray(row.actions) ? new Set(row.actions) : null;
+    const acts = el("div", "acts");
+    (s.actions || []).forEach((a, k) => {
+      if (allowed && !allowed.has(k)) return;
+      const b = el("button", "act" + (k === 0 ? " primary" : ""));
+      b.innerHTML = `${k === 0 ? icons.check : ""}<span>${esc(a.label)}</span>`;
+      b.onclick = () => perform(s, k);
+      acts.appendChild(b);
+    });
+    if (row.url) {
+      const b = el("button", "act");
+      b.innerHTML = `${icons.external}<span>Open</span>`;
+      b.title = row.url;
+      b.onclick = () => bridge.send({ type: "open_url", url: row.url });
+      acts.appendChild(b);
     }
+    if (acts.childElementCount) box.appendChild(acts);
   }
 
   function renderCaptures(box, s) {
@@ -477,6 +567,16 @@
     const row = current();
     if (!row) return;
     bridge.send({ type: "action", section: s.id, index: k, id: row.id });
+    const a = (s.actions || [])[k] || {};
+    if (a.advance === false) {
+      // The card stays — Go starts a run and the card is where it is
+      // watched. It reads as started at once and the truth follows.
+      row.status = "running"; row.live = true; row.actions = [];
+      row.subtitle = "starting"; row.progress = 0.02; row.eta = "";
+      renderContent(); renderTools(); syncLive();
+      setTimeout(() => bridge.send({ type: "open", section: s.id }), 900);
+      return;
+    }
     // Optimistic: the card leaves at once. A failure reloads the list from
     // the native side, which arrives as a fresh `rows` message.
     const rows = state.rows[s.id] || [];

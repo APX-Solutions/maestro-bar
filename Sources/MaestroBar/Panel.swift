@@ -293,7 +293,9 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
             var d: [String: Any] = [
                 "id": s.id, "title": s.title, "symbol": s.symbol,
                 "hasList": !s.list.isEmpty,
-                "actions": s.actions.map { ["label": $0.label, "symbol": $0.symbol] }
+                "actions": s.actions.map { ["label": $0.label, "symbol": $0.symbol, "advance": $0.advance] },
+                "live": s.live,
+                "watch": s.watch
             ]
             if let c = s.compose {
                 d["compose"] = ["placeholder": c.placeholder, "record": c.record]
@@ -478,12 +480,25 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
     /// One row, reduced to the lines the card shows. The mapping comes from
     /// the section's `fields`, so a new endpoint is a config change.
     private func card(_ row: [String: Any], _ s: PanelSection) -> [String: Any] {
-        [
+        var d: [String: Any] = [
             "id": rowID(row) ?? "",
             "title": PanelController.text(row, s.fields.title) ?? "Untitled",
             "subtitle": PanelController.text(row, s.fields.subtitle) ?? "",
             "body": PanelController.text(row, s.fields.body) ?? ""
         ]
+        // A card may say more than its three lines: how far along it is,
+        // its link, its steps, which buttons apply, whether to keep fetching.
+        // Passed through as they are; the page knows what to do with them.
+        for k in PanelController.cardExtras where row[k] != nil { d[k] = row[k] }
+        return d
+    }
+
+    static let cardExtras = ["status", "progress", "eta", "url", "steps", "actions", "live"]
+
+    /// A recording has left for Maestro. The page shows it on its way in the
+    /// section that watches recordings, and polls until the card appears.
+    func recordingSent() {
+        send(["type": "sent"])
     }
 
     private static func text(_ row: [String: Any], _ keys: [String]) -> String? {

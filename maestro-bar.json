@@ -123,6 +123,55 @@
         ]
       },
       {
+        "id": "storyboards",
+        "title": "Storyboards",
+        "symbol": "film",
+        "list": "/studio/runs",
+        "live_seconds": 5,
+        "watch_recordings": true,
+        "fields": {
+          "title": [
+            "title"
+          ],
+          "subtitle": [
+            "subtitle"
+          ],
+          "body": [
+            "body"
+          ]
+        },
+        "actions": [
+          {
+            "label": "Go",
+            "symbol": "play",
+            "method": "POST",
+            "path": "/studio/runs/{id}/go",
+            "advance": false,
+            "toast": "Started — the card shows progress"
+          },
+          {
+            "label": "Retry",
+            "method": "POST",
+            "path": "/studio/runs/{id}/retry",
+            "advance": false,
+            "toast": "Retrying the failed steps"
+          },
+          {
+            "label": "Dismiss",
+            "method": "POST",
+            "path": "/studio/runs/{id}/dismiss",
+            "toast": "Dismissed"
+          }
+        ],
+        "compose": {
+          "path": "/studio/runs/{id}/instruct",
+          "field": "instruction",
+          "placeholder": "Change the plan, or ask for more",
+          "record": false,
+          "toast": "Understood — the card updates"
+        }
+      },
+      {
         "id": "capture",
         "title": "Capture",
         "symbol": "mic.circle",

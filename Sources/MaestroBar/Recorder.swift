@@ -13,6 +13,8 @@ final class Recorder {
     private var config = BarConfig.fallback
 
     var onChange: (() -> Void)?
+    /// A recording was handed to the after-record step — it is on its way.
+    var onSent: (() -> Void)?
 
     var isRecording: Bool { process != nil }
 
@@ -256,6 +258,7 @@ final class Recorder {
                 .replacingOccurrences(of: "{client}", with: shellQuote(tag ?? ""))
             if after.notify { toast("Saved \(f.lastPathComponent), processing now") }
             runShell(cmd)
+            onSent?()
         } else {
             toast("Saved \(f.lastPathComponent)")
         }

@@ -79,10 +79,16 @@ struct PanelSection {
     var fields: PanelFields = PanelFields()
     var actions: [PanelAction] = []
     var compose: PanelCompose? = nil
+    var live: Double = 0                 // seconds between fetches while a card is live; 0 = never
+    var watch: Bool = false              // where a recording that was just sent shows up
 }
 
 extension PanelSection: Decodable {
-    enum K: String, CodingKey { case id, title, symbol, list, fields, actions, compose }
+    enum K: String, CodingKey {
+        case id, title, symbol, list, fields, actions, compose
+        case live = "live_seconds"
+        case watch = "watch_recordings"
+    }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: K.self)
         self.init()
@@ -93,6 +99,8 @@ extension PanelSection: Decodable {
         fields = try c.decodeIfPresent(PanelFields.self, forKey: .fields) ?? fields
         actions = try c.decodeIfPresent([PanelAction].self, forKey: .actions) ?? actions
         compose = try c.decodeIfPresent(PanelCompose.self, forKey: .compose)
+        live = try c.decodeIfPresent(Double.self, forKey: .live) ?? live
+        watch = try c.decodeIfPresent(Bool.self, forKey: .watch) ?? watch
     }
 }
 
