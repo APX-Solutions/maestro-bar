@@ -92,6 +92,35 @@
         }
       },
       {
+        "id": "changes",
+        "title": "My changes",
+        "symbol": "hammer",
+        "list": "/agentic/sessions?mine=true&hours=0&limit=30",
+        "fields": {
+          "title": [
+            "title"
+          ],
+          "subtitle": [
+            "status_label"
+          ],
+          "body": [
+            "body",
+            "error"
+          ]
+        },
+        "actions": [
+          {
+            "label": "Open preview",
+            "symbol": "safari",
+            "url": "{ui_url}"
+          },
+          {
+            "label": "Open PR",
+            "url": "{pr_url}"
+          }
+        ]
+      },
+      {
         "id": "capture",
         "title": "Capture",
         "symbol": "mic.circle",

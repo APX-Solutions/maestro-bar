@@ -11,10 +11,15 @@ struct PanelAction {
     var advance: Bool = true         // drop the card and move to the next one
     var toast: String = ""
     var body: [String: String]? = nil
+    // Open a link instead of calling the API. Substituted from the row the
+    // same way `path` is, so "{ui_url}" is the running change this card is
+    // about. A card that can only be acted on, never looked at, sends you to
+    // the browser to find the thing it is already telling you about.
+    var url: String = ""
 }
 
 extension PanelAction: Decodable {
-    enum K: String, CodingKey { case label, symbol, path, method, advance, toast, body }
+    enum K: String, CodingKey { case label, symbol, path, method, advance, toast, body, url }
     init(from d: Decoder) throws {
         let c = try d.container(keyedBy: K.self)
         self.init()
@@ -25,6 +30,11 @@ extension PanelAction: Decodable {
         advance = try c.decodeIfPresent(Bool.self, forKey: .advance) ?? advance
         toast = try c.decodeIfPresent(String.self, forKey: .toast) ?? toast
         body = try c.decodeIfPresent([String: String].self, forKey: .body)
+        url = try c.decodeIfPresent(String.self, forKey: .url) ?? url
+        // Opening a link leaves the queue exactly as it was: you are going to
+        // look at something, not deciding it is dealt with. Anything that
+        // wants both says so explicitly.
+        if !url.isEmpty, !c.contains(.advance) { advance = false }
     }
 }
 

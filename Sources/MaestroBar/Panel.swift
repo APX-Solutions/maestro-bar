@@ -601,7 +601,25 @@ final class PanelController: NSObject, NSWindowDelegate {
     }
 
     private func perform(_ a: PanelAction) {
-        guard let row = current, !a.path.isEmpty else { return }
+        guard let row = current else { return }
+        // A link action opens the browser and touches nothing else. An empty
+        // or unsubstituted value means this row has no such link yet (a
+        // session with no preview): say so rather than opening "{ui_url}".
+        if !a.url.isEmpty {
+            // Three ways there is nothing to open: the row has no such field
+            // (the placeholder survives), the field is there but empty (a
+            // session with no preview yet), or it is not a URL at all.
+            let raw = substitute(a.url, row).trimmingCharacters(in: .whitespaces)
+            guard !raw.isEmpty, !raw.contains("{"),
+                  let link = URL(string: raw), link.scheme != nil else {
+                toast("No link yet")
+                return
+            }
+            NSWorkspace.shared.open(link)
+            if !a.toast.isEmpty { toast(a.toast) }
+            return
+        }
+        guard !a.path.isEmpty else { return }
         api.call(a.method, substitute(a.path, row), body: a.body) { [weak self] _, code in
             guard let self = self else { return }
             if (200..<300).contains(code) {
