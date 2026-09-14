@@ -25,10 +25,41 @@ final class API {
     /// recordings went through fine. One token, two readers, one order.
     static func token(service: String) -> String? {
         if let t = Keychain.read(service: service), !t.isEmpty { return t }
-        let path = (NSHomeDirectory() as NSString).appendingPathComponent(".maestro/token")
-        guard let s = try? String(contentsOfFile: path, encoding: .utf8) else { return nil }
+        guard let s = try? String(contentsOfFile: tokenFilePath, encoding: .utf8) else { return nil }
         let t = s.trimmingCharacters(in: .whitespacesAndNewlines)
         return t.isEmpty ? nil : t
+    }
+
+    /// Where the file copy lives. One definition, so the reader above and the
+    /// writer below cannot drift apart.
+    static var tokenFilePath: String {
+        (NSHomeDirectory() as NSString).appendingPathComponent(".maestro/token")
+    }
+
+    /// Save the token to the file, mode 600. True if it landed.
+    ///
+    /// The other half of token(): that reads the file when the keychain has
+    /// nothing, and this is what puts it there. install.sh writes this same
+    /// file, so a token set in the app and one set by the installer end up in
+    /// the same place rather than in two stores that disagree.
+    @discardableResult
+    static func writeTokenFile(_ value: String) -> Bool {
+        let path = tokenFilePath
+        let dir = (path as NSString).deletingLastPathComponent
+        do {
+            try FileManager.default.createDirectory(
+                atPath: dir, withIntermediateDirectories: true,
+                attributes: [.posixPermissions: NSNumber(value: 0o700)])
+            try value.write(toFile: path, atomically: true, encoding: .utf8)
+            // Set AFTER the write: `atomically` renames a new file into place,
+            // so it arrives with default permissions. A token every process on
+            // the machine can read is worse than one that is awkward to reach.
+            try FileManager.default.setAttributes(
+                [.posixPermissions: NSNumber(value: 0o600)], ofItemAtPath: path)
+            return true
+        } catch {
+            return false
+        }
     }
 
     private func request(_ path: String, method: String, body: Data?) -> URLRequest? {
