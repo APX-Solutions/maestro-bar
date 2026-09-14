@@ -50,13 +50,20 @@ func alert(_ title: String, _ body: String, copy: String? = nil,
     }
 }
 
-/// The token is typed into a secure field and written straight to the keychain.
-/// It never reaches a file, a shell command, or the process list.
+/// The token is typed into a secure field and written to both stores it can
+/// live in. It never reaches a shell command or the process list.
+///
+/// Both, because either one can refuse. The keychain challenges the app
+/// whenever its code identity changes — a re-sign, a rebuild, a reinstall —
+/// and install.sh writes only the file. API.token() already reads both; saving
+/// to only one is how someone is told "Token saved" and then shown a bar that
+/// answers 401 to everything.
 func askForToken(service: String) {
     let a = NSAlert()
     a.messageText = "Maestro API token"
     a.informativeText = "Paste the token you were given. It is kept in your "
-        + "login keychain, never in a file."
+        + "login keychain and in ~/.maestro/token, which is what uploads read "
+        + "and what survives the app being re-signed."
     let field = EditableSecureTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
     a.accessoryView = field
     a.addButton(withTitle: "Save")
@@ -66,8 +73,10 @@ func askForToken(service: String) {
     guard a.runModal() == .alertFirstButtonReturn else { return }
     let value = field.stringValue.trimmingCharacters(in: .whitespacesAndNewlines)
     guard !value.isEmpty else { return }
-    toast(Keychain.write(service: service, value: value)
-          ? "Token saved" : "Could not save the token")
+    let vault = Keychain.write(service: service, value: value)
+    let file = API.writeTokenFile(value)
+    toast(vault || file ? "Token saved"
+          : "Could not save the token — check permissions on ~/.maestro")
 }
 
 final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
@@ -270,9 +279,23 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// guess which of four things is missing.
     private func checkSetup() {
         var lines: [String] = []
+        // First, because it is the answer to "is the fix in?" — and because
+        // every other line here is worth doubting if the code is not the code
+        // you think it is. build.sh stamps this from the commit count and the
+        // sha, so it cannot drift from what was built; a trailing + means the
+        // tree had uncommitted changes.
+        let version = Bundle.main.infoDictionary?["CFBundleShortVersionString"] as? String
+        lines.append("Version: \(version ?? "unknown")")
         lines.append("Config: \(configSource)")
         lines.append("API: \(config.api.isEmpty ? "not set" : config.api)")
-        lines.append("Token: \(Keychain.read(service: config.tokenService) == nil ? "missing" : "in the keychain")")
+        // WHICH store answered, not just whether one did: API.token() reads the
+        // keychain and then the file, and knowing which is what tells you why
+        // a re-signed app suddenly went quiet.
+        let tokenWhere: String
+        if Keychain.read(service: config.tokenService) != nil { tokenWhere = "the keychain" }
+        else if API.token(service: config.tokenService) != nil { tokenWhere = "~/.maestro/token" }
+        else { tokenWhere = "MISSING" }
+        lines.append("Token: \(tokenWhere)")
         lines.append("Audio recording: \(Recorder.ffmpegPath() == nil ? "needs ffmpeg" : "ready")")
         let sd = scriptsDir()
         let hasPush = FileManager.default.isExecutableFile(atPath: sd + "/push.sh")
