@@ -56,7 +56,8 @@ func askForToken(service: String) {
     let a = NSAlert()
     a.messageText = "Maestro API token"
     a.informativeText = "Paste the token you were given. It is kept in your "
-        + "login keychain, never in a file."
+        + "login keychain and in ~/.maestro/token, which is what uploads read "
+        + "and what survives the app being re-signed."
     let field = EditableSecureTextField(frame: NSRect(x: 0, y: 0, width: 320, height: 24))
     a.accessoryView = field
     a.addButton(withTitle: "Save")
@@ -206,9 +207,20 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
     /// guess which of four things is missing.
     private func checkSetup() {
         var lines: [String] = []
+        // First, because it is the answer to "is the fix in?" — and because
+        // every other line is worth doubting if the code is not the code you
+        // think it is. build.sh stamps this from the commit count and sha, so
+        // it cannot drift from what was built; a trailing + means the tree had
+        // uncommitted changes.
+        let info = Bundle.main.infoDictionary
+        let v = (info?["CFBundleShortVersionString"] as? String) ?? "unknown"
+        lines.append("Version: \(v)")
         lines.append("Config: \(configSource)")
         lines.append("API: \(config.api.isEmpty ? "not set" : config.api)")
-        lines.append("Token: \(Keychain.read(service: config.tokenService) == nil ? "missing" : "in the keychain")")
+        // WHICH store, not just whether: a token the app can read and the
+        // upload script cannot (or the other way round) is the failure that
+        // looks like an empty queue.
+        lines.append("Token: \(Keychain.source(service: config.tokenService))")
         lines.append("Audio recording: \(Recorder.ffmpegPath() == nil ? "needs ffmpeg" : "ready")")
         let sd = scriptsDir()
         let hasPush = FileManager.default.isExecutableFile(atPath: sd + "/push.sh")
