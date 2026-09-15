@@ -90,13 +90,19 @@ curl -sS --fail --max-time 900 -X PUT "$URL" \
 PAGE_URL=""
 [ -f "$FILE.url" ] && PAGE_URL="$(tr -d '\r\n' < "$FILE.url" 2>/dev/null || true)"
 
+# What the person typed when they sent it, kept beside the media for the same
+# reason. For a SCREENSHOT this is the whole ask: a picture says where, not
+# what is wrong with it.
+NOTE=""
+[ -f "$FILE.note" ] && NOTE="$(cat "$FILE.note" 2>/dev/null || true)"
+
 OUT="$(curl -sS --max-time 900 "${auth[@]}" -H 'Content-Type: application/json' \
   -X POST "$API/recordings/ingest" \
-  -d "{\"key\":\"$(jstr "$KEY")\",\"kind\":\"$KIND\",\"page_url\":\"$(jstr "$PAGE_URL")\"}" 2>/dev/null)"
+  -d "{\"key\":\"$(jstr "$KEY")\",\"kind\":\"$KIND\",\"page_url\":\"$(jstr "$PAGE_URL")\",\"note\":\"$(jstr "$NOTE")\"}" 2>/dev/null)"
 
 # Read, so the note has done its job. Left behind it would attach the wrong
 # page to nothing in particular.
-rm -f "$FILE.url"
+rm -f "$FILE.url" "$FILE.note"
 
 OK="$(jget ok "$OUT")"
 ROUTED="$(jget routed "$OUT")"

@@ -264,6 +264,78 @@ final class Recorder {
         }
     }
 
+    /// Pick a region of the screen and send it, the way a recording is sent.
+    ///
+    /// A screenshot answers a different question from a recording: not "watch
+    /// me reproduce this" but "look at THIS". It is also the only way to report
+    /// something that has already happened and cannot be re-enacted — an error
+    /// that flashed, a layout that is wrong right now.
+    ///
+    /// `screencapture -i` is macOS's own region picker, so this is the
+    /// crosshair everyone already knows, with Esc to cancel. Reimplementing it
+    /// would be a worse version of a thing the OS does well.
+    ///
+    /// `note` is what the person typed alongside. It is the whole ask for a
+    /// picture, which says WHERE but not what is wrong with it, so it rides in
+    /// a sidecar beside the image the way the page URL already does — a parked
+    /// upload retried days later must still know what the picture was about.
+    func screenshot(note: String, sessionID: String, config cfg: BarConfig) {
+        let dir = expand(cfg.outDir)
+        try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
+
+        let fmt = DateFormatter()
+        fmt.dateFormat = "yyyy-MM-dd_HHmmss"
+        let out = URL(fileURLWithPath: dir)
+            .appendingPathComponent("screenshot-\(fmt.string(from: Date())).png")
+
+        // -i interactive, -r no window shadow, -o no shadow on a window grab.
+        // Run through the same shell path everything else uses so a missing
+        // binary fails the same way.
+        let p = Process()
+        p.executableURL = URL(fileURLWithPath: "/bin/sh")
+        p.arguments = ["-c", "screencapture -i -r \(shellQuote(out.path))"]
+        // Set BEFORE run(): a cancelled pick exits almost immediately, and a
+        // handler attached afterwards can miss a process that has already
+        // gone — which would leave the screenshot never sent and nothing said.
+        p.terminationHandler = { [weak self] _ in
+            DispatchQueue.main.async {
+                // No file means cancelled — Esc, or a click with no drag.
+                // screencapture writes nothing in that case and says nothing,
+                // which is the right amount of noise for "never mind".
+                guard FileManager.default.fileExists(atPath: out.path),
+                      ((try? FileManager.default.attributesOfItem(atPath: out.path))?[.size] as? Int ?? 0) > 0
+                else { return }
+                self?.finishScreenshot(out, note: note, sessionID: sessionID, config: cfg)
+            }
+        }
+        do {
+            try p.run()
+        } catch {
+            toast("Could not start the screenshot")
+        }
+    }
+
+    private func finishScreenshot(_ file: URL, note: String, sessionID: String,
+                                  config cfg: BarConfig) {
+        // Beside the image, and written BEFORE the hand-off: send.sh reads them
+        // there, on the first try or on a retry after a restart.
+        for (ext, value) in [("note", note), ("session", sessionID)] where !value.isEmpty {
+            try? value.write(to: URL(fileURLWithPath: file.path + "." + ext),
+                             atomically: true, encoding: .utf8)
+        }
+        guard let after = cfg.afterRecord, !after.cmd.isEmpty else {
+            toast("Saved \(file.lastPathComponent)")
+            return
+        }
+        let cmd = after.cmd
+            .replacingOccurrences(of: "{scripts}", with: shellQuote(scriptsDir()))
+            .replacingOccurrences(of: "{file}", with: shellQuote(file.path))
+            .replacingOccurrences(of: "{client}", with: shellQuote(""))
+        toast("Sending the screenshot")
+        runShell(cmd)
+        onSent?()
+    }
+
     private static func slug(_ s: String) -> String {
         let allowed = CharacterSet.alphanumerics
         let mapped = String(s.lowercased().unicodeScalars.map {
