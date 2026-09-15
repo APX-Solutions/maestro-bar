@@ -224,6 +224,21 @@ a { color: inherit; }
 .act.primary { color: var(--text); box-shadow: 0 0 0 1px rgba(129, 182, 255, 0.45) inset; }
 .act.primary:hover { background: rgba(5, 68, 169, 0.35); }
 
+/* "Just talk" or "Show me" — the two ways to give feedback on a session.
+   Takes a whole row of its own so the choice is not squeezed between the
+   buttons that were already there. */
+.fb-choice { display: flex; gap: 6px; flex-basis: 100%; margin-top: 6px; }
+.fb-opt {
+  height: 26px; padding: 0 10px 0 8px;
+  border-radius: 999px;
+  display: flex; align-items: center; gap: 5px;
+  font-size: 11.5px;
+  color: var(--text);
+  background: var(--hover);
+  box-shadow: 0 0 0 1px rgba(237, 238, 242, 0.14) inset;
+}
+.fb-opt:hover { background: rgba(5, 68, 169, 0.35); }
+
 /* a run in progress: the bar, the time left, the steps */
 .c-prog {
   height: 3px; border-radius: 2px; margin-top: 10px; overflow: hidden;

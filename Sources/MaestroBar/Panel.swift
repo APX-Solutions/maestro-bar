@@ -381,6 +381,15 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
             if let text = m["text"] as? String { ask(text) }
         case "record":
             if let mode = m["mode"] as? String { requestRecording(mode: mode) }
+        case "snip":
+            // The bar must not be in the shot: it sits above everything, and a
+            // picture of the thing you are reporting FROM is not the thing you
+            // are reporting. screencapture takes over the screen itself, so
+            // hiding is enough — there is nothing to wait for.
+            let note = (m["note"] as? String) ?? ""
+            let session = (m["session"] as? String) ?? ""
+            hide()
+            recorder.screenshot(note: note, sessionID: session, config: config)
         case "url_answer":
             guard let mode = pendingRecord else { break }
             pendingRecord = nil
