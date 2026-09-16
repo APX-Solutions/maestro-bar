@@ -522,13 +522,7 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
         return nil
     }
 
-    private func rowID(_ row: [String: Any]) -> String? {
-        for k in ["id", "gmail_id", "action_id", "task_id", "uuid", "key"] {
-            if let s = row[k] as? String { return s }
-            if let n = row[k] as? Int { return String(n) }
-        }
-        return nil
-    }
+    private func rowID(_ row: [String: Any]) -> String? { API.rowID(row) }
 
     private func row(in sectionID: String, id: String?) -> [String: Any]? {
         guard let id = id else { return nil }

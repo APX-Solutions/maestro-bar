@@ -81,6 +81,7 @@ struct PanelSection {
     var compose: PanelCompose? = nil
     var live: Double = 0                 // seconds between fetches while a card is live; 0 = never
     var feedback: Bool = false           // a card here can be recorded AGAINST
+    var notifyOnStatus: Bool = false     // say so when one of its rows finishes
     var watch: Bool = false              // where a recording that was just sent shows up
 }
 
@@ -89,6 +90,7 @@ extension PanelSection: Decodable {
         case id, title, symbol, list, fields, actions, compose
         case live = "live_seconds"
         case feedback
+        case notifyOnStatus = "notify_on_status"
         case watch = "watch_recordings"
     }
     init(from d: Decoder) throws {
@@ -103,6 +105,7 @@ extension PanelSection: Decodable {
         compose = try c.decodeIfPresent(PanelCompose.self, forKey: .compose)
         live = try c.decodeIfPresent(Double.self, forKey: .live) ?? live
         feedback = try c.decodeIfPresent(Bool.self, forKey: .feedback) ?? feedback
+        notifyOnStatus = try c.decodeIfPresent(Bool.self, forKey: .notifyOnStatus) ?? notifyOnStatus
         watch = try c.decodeIfPresent(Bool.self, forKey: .watch) ?? watch
     }
 }
