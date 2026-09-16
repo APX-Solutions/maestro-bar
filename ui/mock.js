@@ -77,10 +77,17 @@
           citations: [{ n: 1, source: "gmail", title: "Re: Ohrid shoot — quote v2", url: "https://mail.google.com" }, { n: 2, source: "meeting", title: "Call with Marko, 3 Sep", url: "" }, { n: 3, source: "slack", title: "#sales · quote thread", url: "https://slack.com" }] }), 1100);
         break;
       case "snip":
-        // The real app hides the bar and hands over to the region picker. In
-        // the browser there is nothing to grab, so just say what was sent —
-        // enough to see that the note and the Skip both arrive.
-        send({ type: "toast", text: m.note ? `Screenshot + "${m.note}"` : "Screenshot, no note" });
+        // The real app hides the bar, grabs the picture, and only then asks
+        // what it shows. In the browser there is nothing to grab, so pretend
+        // the grab took a moment and came back — enough to see the box open
+        // with the right words for a region, the whole screen, or feedback.
+        setTimeout(() => send({ type: "snip_taken", ok: true, session: m.session || "", full: m.mode === "full" }), 400);
+        break;
+      case "snip_note":
+        send({ type: "toast", text: m.text ? `Screenshot + "${m.text}"` : "Screenshot, no note" });
+        break;
+      case "snip_discard":
+        send({ type: "toast", text: "Screenshot discarded" });
         break;
       case "record":
         // The app asks where the recording is before it starts one, so this

@@ -101,7 +101,7 @@ final class Recorder {
     }
 
     func start(mode: String, client: String?, config: BarConfig,
-               pageURL: String = "") {
+               pageURL: String = "", note: String = "") {
         guard !isRecording else { return }
         if mode != "screen", Recorder.ffmpegPath() == nil {
             // The app ships its own ffmpeg, so reaching here means the copy
@@ -170,6 +170,14 @@ final class Recorder {
         try? FileManager.default.removeItem(at: side)
         if !pageURL.isEmpty {
             try? pageURL.write(to: side, atomically: true, encoding: .utf8)
+        }
+        // What was typed in the bar, whole: a link, what is wrong, or both.
+        // Maestro finds the address in it; here it only rides beside the media
+        // the way the URL from the old dialog does.
+        let noteSide = URL(fileURLWithPath: out.path + ".note")
+        try? FileManager.default.removeItem(at: noteSide)
+        if !note.isEmpty {
+            try? note.write(to: noteSide, atomically: true, encoding: .utf8)
         }
 
         // exec replaces the shell with the recorder, so the interrupt below
@@ -279,7 +287,11 @@ final class Recorder {
     /// picture, which says WHERE but not what is wrong with it, so it rides in
     /// a sidecar beside the image the way the page URL already does — a parked
     /// upload retried days later must still know what the picture was about.
-    func screenshot(note: String, sessionID: String, config cfg: BarConfig) {
+    /// Take the picture — a region to drag, or the whole screen the pointer is
+    /// on — and hand back where it landed, or nil when the person cancelled.
+    /// Sending is a separate step (`sendScreenshot`), because the words that
+    /// go with a picture are asked for AFTER there is a picture to describe.
+    func captureScreenshot(full: Bool, config cfg: BarConfig, done: @escaping (URL?) -> Void) {
         let dir = expand(cfg.outDir)
         try? FileManager.default.createDirectory(atPath: dir, withIntermediateDirectories: true)
 
@@ -288,35 +300,45 @@ final class Recorder {
         let out = URL(fileURLWithPath: dir)
             .appendingPathComponent("screenshot-\(fmt.string(from: Date())).png")
 
-        // -i interactive, -r no window shadow, -o no shadow on a window grab.
-        // Run through the same shell path everything else uses so a missing
-        // binary fails the same way.
+        // -i interactive, -r no window shadow. For the whole screen, -D picks
+        // the display under the pointer (1-based, in NSScreen order), because
+        // one screen of three is the one being looked at. Run through the same
+        // shell path everything else uses so a missing binary fails the same way.
+        let args: String
+        if full {
+            let mouse = NSEvent.mouseLocation
+            let idx = NSScreen.screens.firstIndex { $0.frame.contains(mouse) } ?? 0
+            args = "-x -D \(idx + 1)"
+        } else {
+            args = "-i -r"
+        }
         let p = Process()
         p.executableURL = URL(fileURLWithPath: "/bin/sh")
-        p.arguments = ["-c", "screencapture -i -r \(shellQuote(out.path))"]
+        p.arguments = ["-c", "screencapture \(args) \(shellQuote(out.path))"]
         // Set BEFORE run(): a cancelled pick exits almost immediately, and a
         // handler attached afterwards can miss a process that has already
         // gone — which would leave the screenshot never sent and nothing said.
-        p.terminationHandler = { [weak self] _ in
+        p.terminationHandler = { _ in
             DispatchQueue.main.async {
                 // No file means cancelled — Esc, or a click with no drag.
                 // screencapture writes nothing in that case and says nothing,
                 // which is the right amount of noise for "never mind".
                 guard FileManager.default.fileExists(atPath: out.path),
                       ((try? FileManager.default.attributesOfItem(atPath: out.path))?[.size] as? Int ?? 0) > 0
-                else { return }
-                self?.finishScreenshot(out, note: note, sessionID: sessionID, config: cfg)
+                else { done(nil); return }
+                done(out)
             }
         }
         do {
             try p.run()
         } catch {
             toast("Could not start the screenshot")
+            done(nil)
         }
     }
 
-    private func finishScreenshot(_ file: URL, note: String, sessionID: String,
-                                  config cfg: BarConfig) {
+    func sendScreenshot(_ file: URL, note: String, sessionID: String,
+                        config cfg: BarConfig) {
         // Beside the image, and written BEFORE the hand-off: send.sh reads them
         // there, on the first try or on a retry after a restart.
         for (ext, value) in [("note", note), ("session", sessionID)] where !value.isEmpty {

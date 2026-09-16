@@ -4,9 +4,10 @@
  * call. This file owns what is on screen. The two talk in small JSON messages:
  *
  *   web → native   ready · open · action · compose · ask · record · hide ·
- *                  drag · size · focus · open_url · copy
+ *                  drag · size · focus · open_url · copy · snip ·
+ *                  snip_note · snip_discard
  *   native → web   state · rows · counts · recording · toast · answer ·
- *                  answer_error · escape · sent
+ *                  answer_error · escape · sent · snip_taken
  *
  * A card may carry more than its three lines: `status`, `progress` (0..1),
  * `eta`, `url`, `steps` [{label, state, note?, url?}], `actions` (which of
@@ -54,6 +55,7 @@
     film: I('<rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 4v16M17 4v16M3 9h4M3 15h4M17 9h4M17 15h4"/>'),
     hammer: I('<path d="M14.5 5.5l4 4M17 3l4 4-2.5 2.5-4-4z"/><path d="M14.5 9.5L4 20l-1-1L13.5 8.5"/>'),
     camera: I('<path d="M3 8.5A1.5 1.5 0 014.5 7h2L8 5h8l1.5 2h2A1.5 1.5 0 0121 8.5v9A1.5 1.5 0 0119.5 19h-15A1.5 1.5 0 013 17.5z"/><circle cx="12" cy="12.5" r="3.2"/>'),
+    fullscreen: I('<path d="M4 9V5a1 1 0 011-1h4M15 4h4a1 1 0 011 1v4M20 15v4a1 1 0 01-1 1h-4M9 20H5a1 1 0 01-1-1v-4"/>'),
   };
   // SF Symbol names in bar.json → the drawn set. Unknown names get a spark.
   const symbolIcon = (name = "") => {
@@ -195,6 +197,19 @@
         renderContent();
         break;
       }
+      case "snip_taken": {
+        // The picture is already on disk. Now — and only now — the question:
+        // asking first put the bar between the person and the thing they
+        // were about to point at, and the words came before there was
+        // anything to describe. Cancelled means nothing to ask about.
+        if (!m.ok) break;
+        state.askUrl = { kind: "snip", session: m.session || "", full: !!m.full };
+        setCollapsed(false);
+        render();
+        const input = $("#input");
+        if (input) { input.value = ""; setTimeout(() => input.focus(), 30); }
+        break;
+      }
       case "ask_url": {
         // A recording is about to start and the one thing it cannot capture
         // is the address of what is on screen. Ask here rather than in a
@@ -291,7 +306,14 @@
   }
 
   function onEscape() {
-    if (state.askUrl) { answerUrl(""); return; }   // Escape is Skip, and records
+    if (state.askUrl) {
+      // For a recording, Escape is Skip: the address is optional and the
+      // person did press Record. For a screenshot the picture already
+      // exists, and Escape on it means "never mind" — nothing should leave
+      // the machine on a key that, everywhere else, backs out.
+      if (state.askUrl.kind === "snip") discardSnip(); else answerUrl("");
+      return;
+    }
     if (!state.collapsed) setCollapsed(true);
     else bridge.send({ type: "hide" });
   }
@@ -357,20 +379,22 @@
       b.title = "Screenshot a region" + (state.snipHint ? " — " + state.snipHint : "");
       b.setAttribute("aria-label", b.title);
       b.innerHTML = icons.camera;
-      b.onclick = () => {
-        if (state.askUrl) return;               // one question at a time
-        // Ask before grabbing, the way recording asks where it is. A picture
-        // sent with no words makes the model judge it alone; a sentence is
-        // almost always worth the two seconds, and Skip is there for when it
-        // is not.
-        //
-        // Never feedback from here. This camera used to borrow the open card's
-        // session whenever the section allowed feedback, so a screenshot taken
-        // while merely LOOKING at a card became a comment on it. Feedback is
-        // only ever what the Feedback button starts.
-        askSnip("");
-      };
+      // Grab first, ask after: the crosshair appears the moment the camera is
+      // pressed, and the words are asked for once there is a picture to
+      // describe. Never feedback from here — this camera used to borrow the
+      // open card's session, so a screenshot taken while merely LOOKING at a
+      // card became a comment on it. Feedback is only what the Feedback
+      // button starts.
+      b.onclick = () => snip("region", "");
       acts.appendChild(b);
+      // The whole screen, no drag: for "everything is wrong" and for the
+      // things a region cannot hold — a layout, a dialog behind a dialog.
+      const f = el("button", "pbtn");
+      f.title = "Screenshot the whole screen";
+      f.setAttribute("aria-label", f.title);
+      f.innerHTML = icons.fullscreen;
+      f.onclick = () => snip("full", "");
+      acts.appendChild(f);
     }
     for (const rec of state.records) {
       const b = el("button", "pbtn rec");
@@ -534,7 +558,7 @@
           c.onclick = (ev) => {
             ev.stopPropagation();
             closeChoice();
-            if (mode === "snip") askSnip(row.id);
+            if (mode === "snip") snip("region", row.id);
             else bridge.send({ type: "record", mode, session: row.id });
           };
           menu.appendChild(c);
@@ -630,39 +654,56 @@
     renderTools();
   }
 
-  /// Open the box that asks what a screenshot should show, then grab. With a
-  /// session the picture is feedback on that session; without one it is a
-  /// plain screenshot. Only the Feedback button ever passes a session.
-  function askSnip(session) {
+  /// Take a screenshot now — a region to drag, or the whole screen — and let
+  /// the native side come back with `snip_taken`, which is when the box asks
+  /// what it shows. With a session the picture is feedback on that session;
+  /// without one it is a plain screenshot. Only the Feedback button ever
+  /// passes a session.
+  function snip(mode, session) {
     if (state.askUrl) return;               // one question at a time
-    state.askUrl = { kind: "snip", session: session || "" };
-    setCollapsed(false);
+    bridge.send({ type: "snip", mode, session: session || "" });
+  }
+
+  /// The picture is on disk but nobody wants it after all.
+  function discardSnip() {
+    state.askUrl = null;
+    $("#input").value = "";
+    autosize();
+    bridge.send({ type: "snip_discard" });
     render();
-    const input = $("#input");
-    if (input) { input.value = ""; input.focus(); }
+    setCollapsed(true);
   }
 
   /// The box, while it is asking where a recording is: an address to paste,
   /// Send to record with it and Skip to record without.
   function renderUrlComposer() {
-    // Two questions share this box: where a recording is, and what is wrong in
-    // a screenshot. Same shape, same Skip — only the words differ, because the
-    // answer is optional in both and pressing on regardless is the point.
+    // One question, asked the same way before a recording and after a
+    // screenshot: a link to the page, what is wrong, or both in one line.
+    // The line goes to Maestro whole and Maestro works out what is in it;
+    // nothing on this side splits or guesses. The answer is optional in
+    // both and pressing on regardless is the point, hence the same Skip.
     const snip = state.askUrl && state.askUrl.kind === "snip";
     const ph = $("#ph");
-    const fb = snip && !!state.askUrl.session;
-    ph.innerHTML = snip ? `<span>${fb ? "What is wrong with this session?" : "What should we look at?"}</span>` : `<span>https://…</span>`;
+    ph.innerHTML = `<span>Paste a link, say what is wrong — or both</span>`;
     ph.hidden = $("#input").value.length > 0;
     $("#input").disabled = false;
     $("#send").disabled = false;
     $("#send").innerHTML = icons.send;
-    $("#send").title = snip ? "Take the screenshot" : "Start recording";
+    $("#send").title = snip ? "Send the screenshot" : "Start recording";
     const left = $("#toolsLeft");
     left.innerHTML = "";
     const skip = el("button", "tool", "<span>Skip</span>");
-    skip.title = snip ? "Screenshot without a note" : "Record without an address";
+    skip.title = snip ? "Send without a note" : "Record without a note";
     skip.onclick = () => answerUrl("");
     left.appendChild(skip);
+    if (snip) {
+      // The shot already exists, so "never mind" needs its own button; before
+      // this, cancelling was Esc on the crosshair, which is now behind us.
+      const d = el("button", "tool", "<span>Discard</span>");
+      d.title = "Throw the screenshot away";
+      d.onclick = discardSnip;
+      left.appendChild(d);
+    }
   }
 
   function renderTools() {
@@ -725,13 +766,14 @@
     state.askUrl = null;
     $("#input").value = "";
     autosize();
+    // The same line either way: a link, words, or both, sent whole. Maestro
+    // reads it; nothing on this side knows or cares which parts are in it.
     if (ask.kind === "snip") {
-      // The screenshot has not been taken yet: the question comes FIRST, so
-      // the bar is out of the way and the words are already in hand when the
-      // crosshair appears. Nothing to remember and nothing to attach after.
-      bridge.send({ type: "snip", note: text, session: ask.session || "" });
+      // The screenshot is already on disk; the native side kept it and the
+      // session it belongs to. Only the words travel now.
+      bridge.send({ type: "snip_note", text });
     } else {
-      bridge.send({ type: "url_answer", url: text, mode: ask.mode || "audio" });
+      bridge.send({ type: "url_answer", text, mode: ask.mode || "audio" });
     }
     render();
     setCollapsed(true);

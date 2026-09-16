@@ -48,6 +48,7 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
     private var queued: [[String: Any]] = []
     private var pendingExpand = false     // asked for before the page was ready
     private var pendingRecord: String?    // the mode waiting on "where is this?"
+    private var pendingSnip: (file: URL, session: String)?   // a shot waiting on its words
 
     private var rows: [String: [[String: Any]]] = [:]   // section id → raw rows
     private var counts: [String: Int] = [:]
@@ -340,6 +341,14 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
         send(msg)
     }
 
+    /// Never mind: the file goes too, so a shot nobody sent does not sit in
+    /// the recordings folder looking like one that failed to upload.
+    private func discardSnip() {
+        guard let p = pendingSnip else { return }
+        pendingSnip = nil
+        try? FileManager.default.removeItem(at: p.file)
+    }
+
     private func recordingDict() -> [String: Any] {
         ["active": recorder.isRecording, "mode": recorder.mode, "elapsed": recorder.elapsed]
     }
@@ -403,19 +412,41 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
         case "record":
             if let mode = m["mode"] as? String { requestRecording(mode: mode) }
         case "snip":
-            // The bar must not be in the shot: it sits above everything, and a
-            // picture of the thing you are reporting FROM is not the thing you
-            // are reporting. screencapture takes over the screen itself, so
-            // hiding is enough — there is nothing to wait for.
-            let note = (m["note"] as? String) ?? ""
+            // Grab first, ask after. The bar must not be in the shot: it sits
+            // above everything, and a picture of the thing you are reporting
+            // FROM is not the thing you are reporting. screencapture takes
+            // over the screen itself, so hiding is enough. When the picture
+            // is on disk the bar comes back with the box open, and the file
+            // waits for its words (snip_note) or for "never mind" (snip_discard).
+            let full = (m["mode"] as? String) == "full"
             let session = (m["session"] as? String) ?? ""
+            discardSnip()                       // a shot nobody answered is not kept
             hide()
-            recorder.screenshot(note: note, sessionID: session, config: config)
+            recorder.captureScreenshot(full: full, config: config) { [weak self] url in
+                guard let self = self else { return }
+                self.show()
+                guard let url = url else {
+                    self.send(["type": "snip_taken", "ok": false])
+                    return
+                }
+                self.pendingSnip = (url, session)
+                self.window?.makeKey()
+                self.send(["type": "snip_taken", "ok": true, "session": session, "full": full])
+            }
+        case "snip_note":
+            guard let p = pendingSnip else { break }
+            pendingSnip = nil
+            recorder.sendScreenshot(p.file, note: (m["text"] as? String) ?? (m["note"] as? String) ?? "",
+                                    sessionID: p.session, config: config)
+        case "snip_discard":
+            discardSnip()
         case "url_answer":
             guard let mode = pendingRecord else { break }
             pendingRecord = nil
+            // The line goes whole, as the note. Maestro reads it and finds the
+            // address in it if there is one; the bar does not guess.
             recorder.start(mode: mode, client: nil, config: config,
-                           pageURL: (m["url"] as? String) ?? "")
+                           note: (m["text"] as? String) ?? (m["url"] as? String) ?? "")
         case "open_url":
             // Citations, and nothing else: the page never asks for a bare URL.
             let target = (m["url"] as? String) ?? ""
