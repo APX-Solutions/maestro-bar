@@ -70,10 +70,24 @@
     return icons.spark;
   };
 
+  // ---- who may open the panel -------------------------------------------
+  // The strip — record, screenshot, close — is for everyone. The panel behind
+  // the chevron (review, sessions, capture, ask) is not, yet: only these
+  // people see the chevron at all. Kept here rather than in bar.json because
+  // the config on each machine is a copy made on first run and never
+  // refreshed, while this file ships with every update of the app.
+  const PANEL_EMAILS = new Set([
+    "alexander@advertisable.ai",
+    "tamara@advertisable.ai",
+    "alex@advertisable.ai",
+  ]);
+  const panelAllowed = () => PANEL_EMAILS.has(state.user);
+
   // ---- state ------------------------------------------------------------
   const ASK = "ask";
   const state = {
     platform: "mac",
+    user: "",              // the email the token belongs to, once /me has said
     hotkey: "",
     api: true,
     sections: [],          // [{id,title,symbol,hasList,actions:[{label,symbol}],compose:{placeholder,record}|null}]
@@ -129,6 +143,7 @@
         state.sections = m.sections || [];
         state.records = m.records || [];
         state.snip = m.snip !== false;       // the camera on the strip
+        state.user = String(m.user || "").trim().toLowerCase();
         state.snipHint = m.snipHint || "";
         state.ask = m.ask || null;
         state.counts = m.counts || {};
@@ -138,6 +153,9 @@
           state.active = ids[0] || (state.ask ? ASK : null);
         }
         render();
+        // Someone the panel is not for must not be left inside it — the
+        // token can change under a running bar, and so can the list.
+        if (!panelAllowed() && !state.collapsed && !state.askUrl) setCollapsed(true);
         loadActive();
         break;
       }
@@ -252,6 +270,11 @@
   }
 
   function setCollapsed(v) {
+    // The panel opens for two reasons: to show its sections, or to ask a
+    // question a recording or screenshot needs answered first. Only the
+    // second is for everyone; the first is behind the chevron, and the
+    // chevron is only drawn for the people on the list.
+    if (!v && !state.askUrl && !panelAllowed()) v = true;
     state.collapsed = v;
     $("#root").classList.toggle("folded", v);
     renderPill();
@@ -360,7 +383,9 @@
       acts.appendChild(b);
     }
     // The chevron points at the panel: towards where it will appear, and back
-    // at the strip when it is already there.
+    // at the strip when it is already there. Not drawn at all for someone the
+    // panel is not for; the strip above is the whole bar for them.
+    if (!panelAllowed()) return;
     const waiting = Object.values(state.counts).reduce((a, n) => a + (n || 0), 0);
     const inward = state.edge === "left" ? icons.chevR : icons.chevL;
     const outward = state.edge === "left" ? icons.chevL : icons.chevR;
