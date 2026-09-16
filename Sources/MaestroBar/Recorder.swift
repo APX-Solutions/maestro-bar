@@ -302,13 +302,16 @@ final class Recorder {
 
         // -i interactive, -r no window shadow. For the whole screen, -D picks
         // the display under the pointer (1-based, in NSScreen order), because
-        // one screen of three is the one being looked at. Run through the same
-        // shell path everything else uses so a missing binary fails the same way.
+        // one screen of three is the one being looked at. No -x: the shutter
+        // sound is the Mac's own way of saying "taken", and a full-screen shot
+        // has no drag and no crosshair, so it is the only sign there is until
+        // the bar comes back. Run through the same shell path everything else
+        // uses so a missing binary fails the same way.
         let args: String
         if full {
             let mouse = NSEvent.mouseLocation
             let idx = NSScreen.screens.firstIndex { $0.frame.contains(mouse) } ?? 0
-            args = "-x -D \(idx + 1)"
+            args = "-D \(idx + 1)"
         } else {
             args = "-i -r"
         }
@@ -326,6 +329,7 @@ final class Recorder {
                 guard FileManager.default.fileExists(atPath: out.path),
                       ((try? FileManager.default.attributesOfItem(atPath: out.path))?[.size] as? Int ?? 0) > 0
                 else { done(nil); return }
+                flashScreen()
                 done(out)
             }
         }
@@ -365,4 +369,26 @@ final class Recorder {
         })
         return mapped.split(separator: "-", omittingEmptySubsequences: true).joined(separator: "-")
     }
+}
+
+
+/// A white blink over the screen the pointer is on, gone in a quarter of a
+/// second. What every camera does: the sign that the picture was taken,
+/// alongside the shutter sound. One borderless window fading out.
+func flashScreen() {
+    let mouse = NSEvent.mouseLocation
+    guard let screen = NSScreen.screens.first(where: { $0.frame.contains(mouse) }) ?? NSScreen.main
+    else { return }
+    let w = NSWindow(contentRect: screen.frame, styleMask: .borderless, backing: .buffered, defer: false)
+    w.level = .screenSaver
+    w.isOpaque = false
+    w.ignoresMouseEvents = true
+    w.backgroundColor = .white
+    w.alphaValue = 0.85
+    w.collectionBehavior = [.canJoinAllSpaces, .transient]
+    w.orderFrontRegardless()
+    NSAnimationContext.runAnimationGroup({ ctx in
+        ctx.duration = 0.26
+        w.animator().alphaValue = 0
+    }, completionHandler: { w.orderOut(nil) })
 }
