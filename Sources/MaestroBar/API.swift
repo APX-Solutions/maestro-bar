@@ -124,6 +124,20 @@ final class API {
     }
 
     /// A list endpoint may answer with a bare array or wrap it. Read both.
+    /// A row's identity, whatever the endpoint calls it.
+    ///
+    /// Was private to PanelController until the status watcher needed it too.
+    /// Moved rather than copied: two lists of key names would drift, and the
+    /// one that drifted would quietly stop matching rows to the cards they
+    /// came from.
+    static func rowID(_ row: [String: Any]) -> String? {
+        for k in ["id", "gmail_id", "action_id", "task_id", "uuid", "key"] {
+            if let s = row[k] as? String { return s }
+            if let n = row[k] as? Int { return String(n) }
+        }
+        return nil
+    }
+
     static func rows(_ json: Any?) -> [[String: Any]] {
         if let a = json as? [[String: Any]] { return a }
         if let d = json as? [String: Any] {

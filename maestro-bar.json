@@ -119,6 +119,37 @@
         }
       },
       {
+        "id": "changes",
+        "title": "My changes",
+        "symbol": "hammer",
+        "feedback": true,
+        "notify_on_status": true,
+        "list": "/agentic/sessions?mine=true&hours=0&limit=30",
+        "live_seconds": 8,
+        "fields": {
+          "title": [
+            "title"
+          ],
+          "subtitle": [
+            "status_label"
+          ],
+          "body": [
+            "error",
+            "body"
+          ]
+        },
+        "actions": [
+          {
+            "label": "Retry",
+            "symbol": "play",
+            "method": "POST",
+            "path": "/agentic/sessions/{id}/retry",
+            "advance": false,
+            "toast": "Queued again"
+          }
+        ]
+      },
+      {
         "id": "capture",
         "title": "Capture",
         "symbol": "mic.circle",

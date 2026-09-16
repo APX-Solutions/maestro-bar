@@ -89,6 +89,10 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     private var hotkeys: [HotKey] = []
     private var badgeTimer: Timer?
+    private var watchTimer: Timer?
+    /// Per section: row id → the status it had last time we looked. What makes
+    /// "your session is done" possible, and what keeps it from being said twice.
+    private var seenStatus: [String: [String: String]] = [:]
     private var screenWatch: Timer?
     private var tickTimer: Timer?
     private var badgeCount: Int?
@@ -222,10 +226,78 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
             refreshBadge()
         }
 
+        watchTimer?.invalidate()
+        watchTimer = nil
+        // Dropped with the timer: the next poll re-baselines rather than
+        // announcing every session that finished while the config was edited.
+        seenStatus = [:]
+        if (c.panel?.sections ?? []).contains(where: { $0.notifyOnStatus }), !c.api.isEmpty {
+            let every = max(20, c.panel?.refreshSeconds ?? 90)
+            let t = Timer(timeInterval: every, repeats: true) { [weak self] _ in
+                self?.watchStatuses()
+            }
+            watchTimer = t
+            RunLoop.main.add(t, forMode: .common)
+            watchStatuses()
+        }
+
         clients = []
         clientsRequested = false
         if c.items.contains(where: { $0.type == "clients" }) { loadClients() }
         paint()
+    }
+
+    // What a status means when it arrives, and how to say it. Only endings are
+    // worth interrupting someone for: a job moving queued → running is the
+    // machine getting to it, which nobody asked to be told about.
+    private static let endings: [String: (String, String)] = [
+        "opened_pr":  ("Ready to look at", "opened a pull request"),
+        "no_changes": ("Nothing to change", "the agent found nothing to do"),
+        "failed":     ("Failed", "the run did not finish"),
+        "timed_out":  ("Timed out", "the run ran out of time"),
+    ]
+
+    /// Poll the sections that asked to be watched, and say so when one of their
+    /// rows reaches an end state.
+    ///
+    /// Runs from `reload`, not from the panel: the panel stops its own polling
+    /// when it is hidden, and a notification that only arrives while you are
+    /// already looking at the bar is not a notification. A run takes minutes
+    /// and nobody watches a toolbar for minutes.
+    private func watchStatuses() {
+        guard !config.api.isEmpty else { return }
+        for s in (config.panel?.sections ?? []) where s.notifyOnStatus && !s.list.isEmpty {
+            api.get(s.list) { [weak self] json, code in
+                // A failed request is left alone rather than treated as "no
+                // rows": a dropped connection is not a finished job.
+                guard let self = self, code == 200 else { return }
+                self.noteStatuses(section: s.id, rows: API.rows(json))
+            }
+        }
+    }
+
+    /// Compared against what was seen LAST poll, not against a list of things
+    /// already announced: the first poll after a launch would otherwise
+    /// announce every finished session at once, which is how a useful
+    /// notification becomes one people switch off.
+    private func noteStatuses(section: String, rows: [[String: Any]]) {
+        var now: [String: String] = [:]
+        for r in rows {
+            guard let id = API.rowID(r) else { continue }
+            now[id] = (r["status"] as? String) ?? ""
+        }
+        let before = seenStatus[section]
+        seenStatus[section] = now
+        guard let was = before else { return }   // first sight: baseline only
+        for (id, status) in now {
+            guard let old = was[id], old != status,
+                  let (head, what) = AppDelegate.endings[status],
+                  AppDelegate.endings[old] == nil            // already ended: a correction
+            else { continue }
+            let title = rows.first { API.rowID($0) == id }
+                .flatMap { $0["title"] as? String } ?? "A session"
+            toast(what, title: "\(head) — \(title.prefix(60))")
+        }
     }
 
     private func refreshBadge() {

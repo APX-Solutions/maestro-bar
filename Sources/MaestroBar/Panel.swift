@@ -295,7 +295,10 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
                 "hasList": !s.list.isEmpty,
                 "actions": s.actions.map { ["label": $0.label, "symbol": $0.symbol, "advance": $0.advance] },
                 "live": s.live,
-                "watch": s.watch
+                "watch": s.watch,
+                // Whether a card here can be TALKED BACK to. Only work in
+                // progress can, so the section says whether it is that kind.
+                "feedback": s.feedback
             ]
             if let c = s.compose {
                 d["compose"] = ["placeholder": c.placeholder, "record": c.record]
@@ -519,13 +522,7 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
         return nil
     }
 
-    private func rowID(_ row: [String: Any]) -> String? {
-        for k in ["id", "gmail_id", "action_id", "task_id", "uuid", "key"] {
-            if let s = row[k] as? String { return s }
-            if let n = row[k] as? Int { return String(n) }
-        }
-        return nil
-    }
+    private func rowID(_ row: [String: Any]) -> String? { API.rowID(row) }
 
     private func row(in sectionID: String, id: String?) -> [String: Any]? {
         guard let id = id else { return nil }
