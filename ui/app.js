@@ -679,8 +679,8 @@
   function renderUrlComposer() {
     // One question, asked the same way before a recording and after a
     // screenshot: a link to the page, what is wrong, or both in one line.
-    // The native side pulls the link out and keeps the rest as the note, so
-    // nobody has to know there are two fields. The answer is optional in
+    // The line goes to Maestro whole and Maestro works out what is in it;
+    // nothing on this side splits or guesses. The answer is optional in
     // both and pressing on regardless is the point, hence the same Skip.
     const snip = state.askUrl && state.askUrl.kind === "snip";
     const ph = $("#ph");
@@ -766,8 +766,8 @@
     state.askUrl = null;
     $("#input").value = "";
     autosize();
-    // The same line either way: a link, words, or both. The native side
-    // splits it; the page does not know or care which parts are in it.
+    // The same line either way: a link, words, or both, sent whole. Maestro
+    // reads it; nothing on this side knows or cares which parts are in it.
     if (ask.kind === "snip") {
       // The screenshot is already on disk; the native side kept it and the
       // session it belongs to. Only the words travel now.

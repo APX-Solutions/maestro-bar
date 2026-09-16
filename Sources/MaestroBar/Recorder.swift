@@ -171,9 +171,9 @@ final class Recorder {
         if !pageURL.isEmpty {
             try? pageURL.write(to: side, atomically: true, encoding: .utf8)
         }
-        // What was typed alongside the link, if anything: the same one line
-        // answers "where is this?" and "what is wrong?", and the words half
-        // rides beside the media the way the link half does.
+        // What was typed in the bar, whole: a link, what is wrong, or both.
+        // Maestro finds the address in it; here it only rides beside the media
+        // the way the URL from the old dialog does.
         let noteSide = URL(fileURLWithPath: out.path + ".note")
         try? FileManager.default.removeItem(at: noteSide)
         if !note.isEmpty {
@@ -337,11 +337,11 @@ final class Recorder {
         }
     }
 
-    func sendScreenshot(_ file: URL, pageURL: String, note: String, sessionID: String,
+    func sendScreenshot(_ file: URL, note: String, sessionID: String,
                         config cfg: BarConfig) {
         // Beside the image, and written BEFORE the hand-off: send.sh reads them
         // there, on the first try or on a retry after a restart.
-        for (ext, value) in [("url", pageURL), ("note", note), ("session", sessionID)] where !value.isEmpty {
+        for (ext, value) in [("note", note), ("session", sessionID)] where !value.isEmpty {
             try? value.write(to: URL(fileURLWithPath: file.path + "." + ext),
                              atomically: true, encoding: .utf8)
         }
