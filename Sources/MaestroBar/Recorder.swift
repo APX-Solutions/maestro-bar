@@ -101,7 +101,7 @@ final class Recorder {
     }
 
     func start(mode: String, client: String?, config: BarConfig,
-               pageURL: String = "") {
+               pageURL: String = "", note: String = "") {
         guard !isRecording else { return }
         if mode != "screen", Recorder.ffmpegPath() == nil {
             // The app ships its own ffmpeg, so reaching here means the copy
@@ -170,6 +170,14 @@ final class Recorder {
         try? FileManager.default.removeItem(at: side)
         if !pageURL.isEmpty {
             try? pageURL.write(to: side, atomically: true, encoding: .utf8)
+        }
+        // What was typed alongside the link, if anything: the same one line
+        // answers "where is this?" and "what is wrong?", and the words half
+        // rides beside the media the way the link half does.
+        let noteSide = URL(fileURLWithPath: out.path + ".note")
+        try? FileManager.default.removeItem(at: noteSide)
+        if !note.isEmpty {
+            try? note.write(to: noteSide, atomically: true, encoding: .utf8)
         }
 
         // exec replaces the shell with the recorder, so the interrupt below
@@ -329,11 +337,11 @@ final class Recorder {
         }
     }
 
-    func sendScreenshot(_ file: URL, note: String, sessionID: String,
+    func sendScreenshot(_ file: URL, pageURL: String, note: String, sessionID: String,
                         config cfg: BarConfig) {
         // Beside the image, and written BEFORE the hand-off: send.sh reads them
         // there, on the first try or on a retry after a restart.
-        for (ext, value) in [("note", note), ("session", sessionID)] where !value.isEmpty {
+        for (ext, value) in [("url", pageURL), ("note", note), ("session", sessionID)] where !value.isEmpty {
             try? value.write(to: URL(fileURLWithPath: file.path + "." + ext),
                              atomically: true, encoding: .utf8)
         }

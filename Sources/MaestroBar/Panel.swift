@@ -436,15 +436,17 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
         case "snip_note":
             guard let p = pendingSnip else { break }
             pendingSnip = nil
-            let note = (m["note"] as? String) ?? ""
-            recorder.sendScreenshot(p.file, note: note, sessionID: p.session, config: config)
+            let ask = PanelController.splitAsk((m["text"] as? String) ?? (m["note"] as? String) ?? "")
+            recorder.sendScreenshot(p.file, pageURL: ask.url, note: ask.note,
+                                    sessionID: p.session, config: config)
         case "snip_discard":
             discardSnip()
         case "url_answer":
             guard let mode = pendingRecord else { break }
             pendingRecord = nil
+            let ask = PanelController.splitAsk((m["text"] as? String) ?? (m["url"] as? String) ?? "")
             recorder.start(mode: mode, client: nil, config: config,
-                           pageURL: (m["url"] as? String) ?? "")
+                           pageURL: ask.url, note: ask.note)
         case "open_url":
             // Citations, and nothing else: the page never asks for a bare URL.
             let target = (m["url"] as? String) ?? ""
@@ -483,6 +485,29 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
         show(expanding: false)
         window?.makeKey()
         send(["type": "ask_url", "mode": mode, "prefill": PanelController.clipboardURL()])
+    }
+
+    /// One line into its two halves: the first web address in it, and the
+    /// rest as the note. The box asks for a link, a description, or both, and
+    /// people answer in one breath — "https://app/x the save button does
+    /// nothing". Maestro wants them apart: the address is looked up, the
+    /// words are read. Trailing punctuation is peeled off the address, since
+    /// "…/settings, the toggle" is a sentence and not a path.
+    static func splitAsk(_ text: String) -> (url: String, note: String) {
+        var url = ""
+        var rest: [String] = []
+        let trailing = CharacterSet(charactersIn: ".,;:!?)]}'\"")
+        for w in text.split(whereSeparator: { $0.isWhitespace }).map(String.init) {
+            let lower = w.lowercased()
+            if url.isEmpty, lower.hasPrefix("http://") || lower.hasPrefix("https://") {
+                var core = w
+                while let last = core.unicodeScalars.last, trailing.contains(last) { core.removeLast() }
+                url = core
+                continue                             // the peeled comma is not worth keeping
+            }
+            rest.append(w)
+        }
+        return (url, rest.joined(separator: " ").trimmingCharacters(in: .whitespaces))
     }
 
     /// Prefilled from the clipboard when it holds one, which it usually does:

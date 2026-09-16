@@ -677,13 +677,14 @@
   /// The box, while it is asking where a recording is: an address to paste,
   /// Send to record with it and Skip to record without.
   function renderUrlComposer() {
-    // Two questions share this box: where a recording is, and what is wrong in
-    // a screenshot. Same shape, same Skip — only the words differ, because the
-    // answer is optional in both and pressing on regardless is the point.
+    // One question, asked the same way before a recording and after a
+    // screenshot: a link to the page, what is wrong, or both in one line.
+    // The native side pulls the link out and keeps the rest as the note, so
+    // nobody has to know there are two fields. The answer is optional in
+    // both and pressing on regardless is the point, hence the same Skip.
     const snip = state.askUrl && state.askUrl.kind === "snip";
     const ph = $("#ph");
-    const fb = snip && !!state.askUrl.session;
-    ph.innerHTML = snip ? `<span>${fb ? "What is wrong with this session?" : "What should we look at?"}</span>` : `<span>https://…</span>`;
+    ph.innerHTML = `<span>Paste a link, say what is wrong — or both</span>`;
     ph.hidden = $("#input").value.length > 0;
     $("#input").disabled = false;
     $("#send").disabled = false;
@@ -692,7 +693,7 @@
     const left = $("#toolsLeft");
     left.innerHTML = "";
     const skip = el("button", "tool", "<span>Skip</span>");
-    skip.title = snip ? "Send without a note" : "Record without an address";
+    skip.title = snip ? "Send without a note" : "Record without a note";
     skip.onclick = () => answerUrl("");
     left.appendChild(skip);
     if (snip) {
@@ -765,12 +766,14 @@
     state.askUrl = null;
     $("#input").value = "";
     autosize();
+    // The same line either way: a link, words, or both. The native side
+    // splits it; the page does not know or care which parts are in it.
     if (ask.kind === "snip") {
       // The screenshot is already on disk; the native side kept it and the
       // session it belongs to. Only the words travel now.
-      bridge.send({ type: "snip_note", note: text });
+      bridge.send({ type: "snip_note", text });
     } else {
-      bridge.send({ type: "url_answer", url: text, mode: ask.mode || "audio" });
+      bridge.send({ type: "url_answer", text, mode: ask.mode || "audio" });
     }
     render();
     setCollapsed(true);

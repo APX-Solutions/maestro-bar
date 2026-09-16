@@ -84,7 +84,7 @@
         setTimeout(() => send({ type: "snip_taken", ok: true, session: m.session || "", full: m.mode === "full" }), 400);
         break;
       case "snip_note":
-        send({ type: "toast", text: m.note ? `Screenshot + "${m.note}"` : "Screenshot, no note" });
+        send({ type: "toast", text: m.text ? `Screenshot + "${m.text}"` : "Screenshot, no note" });
         break;
       case "snip_discard":
         send({ type: "toast", text: "Screenshot discarded" });
