@@ -80,6 +80,7 @@ struct PanelSection {
     var actions: [PanelAction] = []
     var compose: PanelCompose? = nil
     var live: Double = 0                 // seconds between fetches while a card is live; 0 = never
+    var feedback: Bool = false           // a card here can be recorded AGAINST
     var watch: Bool = false              // where a recording that was just sent shows up
 }
 
@@ -87,6 +88,7 @@ extension PanelSection: Decodable {
     enum K: String, CodingKey {
         case id, title, symbol, list, fields, actions, compose
         case live = "live_seconds"
+        case feedback
         case watch = "watch_recordings"
     }
     init(from d: Decoder) throws {
@@ -100,6 +102,7 @@ extension PanelSection: Decodable {
         actions = try c.decodeIfPresent([PanelAction].self, forKey: .actions) ?? actions
         compose = try c.decodeIfPresent(PanelCompose.self, forKey: .compose)
         live = try c.decodeIfPresent(Double.self, forKey: .live) ?? live
+        feedback = try c.decodeIfPresent(Bool.self, forKey: .feedback) ?? feedback
         watch = try c.decodeIfPresent(Bool.self, forKey: .watch) ?? watch
     }
 }

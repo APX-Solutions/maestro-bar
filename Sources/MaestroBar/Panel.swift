@@ -295,7 +295,10 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
                 "hasList": !s.list.isEmpty,
                 "actions": s.actions.map { ["label": $0.label, "symbol": $0.symbol, "advance": $0.advance] },
                 "live": s.live,
-                "watch": s.watch
+                "watch": s.watch,
+                // Whether a card here can be TALKED BACK to. Only work in
+                // progress can, so the section says whether it is that kind.
+                "feedback": s.feedback
             ]
             if let c = s.compose {
                 d["compose"] = ["placeholder": c.placeholder, "record": c.record]
