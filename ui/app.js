@@ -92,7 +92,8 @@
     captures: [],          // this session's captures, newest first
     busy: false,           // an ask is in flight
     edge: "right",         // which side of the screen it is parked on
-    askUrl: null,          // {mode} while the bar is asking where a recording is
+    askUrl: null,          // {mode} while a recording is asking where it is,
+                           // or {kind:"snip"} while a screenshot asks what is wrong
     collapsed: true,       // parked folded: the panel is asked for, not imposed
     sending: null,         // {section, ids, at} while a recording is on its way to Maestro
     liveTimer: null,       // the poll, while a card is live
@@ -334,15 +335,17 @@
       b.setAttribute("aria-label", b.title);
       b.innerHTML = icons.camera;
       b.onclick = () => {
-        // Whatever is typed in the box goes WITH the picture and is then
-        // cleared, because it has been sent. A screenshot says where; the
-        // words say what is wrong with it.
+        if (state.askUrl) return;               // one question at a time
+        // Ask before grabbing, the way recording asks where it is. A picture
+        // sent with no words makes the model judge it alone; a sentence is
+        // almost always worth the two seconds, and Skip is there for when it
+        // is not.
+        const s = activeSection(), row = current();
+        state.askUrl = { kind: "snip", session: s && s.feedback && row ? row.id : "" };
+        setCollapsed(false);
+        render();
         const input = $("#input");
-        const note = input && !state.askUrl ? input.value.trim() : "";
-        if (input && note) { input.value = ""; autosize(); }
-        const row = current();
-        bridge.send({ type: "snip", note,
-                      session: row && activeSection() && activeSection().feedback ? row.id : "" });
+        if (input) { input.value = ""; input.focus(); }
       };
       acts.appendChild(b);
     }
@@ -391,8 +394,16 @@
     const box = $("#scroll");
     box.innerHTML = "";
     if (state.askUrl) {
-      box.appendChild(emptyState("Where is this?",
-        "Paste the address of the page you are recording, or skip it. The recording starts either way."));
+      // A screenshot asks a different question from a recording. The picture
+      // already says WHERE; what it cannot say is what is wrong with it, and
+      // those words are the whole ask — so they are asked for the same way,
+      // with the same Skip, rather than being typed into a box that happens to
+      // be on screen.
+      box.appendChild(state.askUrl.kind === "snip"
+        ? emptyState("What is wrong?",
+            "Say what to look at in the picture, or skip it. It is sent either way.")
+        : emptyState("Where is this?",
+            "Paste the address of the page you are recording, or skip it. The recording starts either way."));
       return measure();
     }
     if (state.active === ASK) return renderThread(box);
@@ -593,17 +604,21 @@
   /// The box, while it is asking where a recording is: an address to paste,
   /// Send to record with it and Skip to record without.
   function renderUrlComposer() {
+    // Two questions share this box: where a recording is, and what is wrong in
+    // a screenshot. Same shape, same Skip — only the words differ, because the
+    // answer is optional in both and pressing on regardless is the point.
+    const snip = state.askUrl && state.askUrl.kind === "snip";
     const ph = $("#ph");
-    ph.innerHTML = `<span>https://…</span>`;
+    ph.innerHTML = snip ? `<span>What should we look at?</span>` : `<span>https://…</span>`;
     ph.hidden = $("#input").value.length > 0;
     $("#input").disabled = false;
     $("#send").disabled = false;
     $("#send").innerHTML = icons.send;
-    $("#send").title = "Start recording";
+    $("#send").title = snip ? "Take the screenshot" : "Start recording";
     const left = $("#toolsLeft");
     left.innerHTML = "";
     const skip = el("button", "tool", "<span>Skip</span>");
-    skip.title = "Record without an address";
+    skip.title = snip ? "Screenshot without a note" : "Record without an address";
     skip.onclick = () => answerUrl("");
     left.appendChild(skip);
   }
@@ -661,15 +676,21 @@
     renderContent(); renderChips(); renderTools();
   }
 
-  /// Send and Skip both start the recording; only one of them carries an
-  /// address. Either way the panel closes, because answering was the only
-  /// reason it was open.
-  function answerUrl(url) {
-    const mode = state.askUrl ? state.askUrl.mode : "audio";
+  /// Send and Skip both go ahead; only one of them carries anything. Either
+  /// way the panel closes, because answering was the only reason it was open.
+  function answerUrl(text) {
+    const ask = state.askUrl || {};
     state.askUrl = null;
     $("#input").value = "";
     autosize();
-    bridge.send({ type: "url_answer", url: url, mode: mode });
+    if (ask.kind === "snip") {
+      // The screenshot has not been taken yet: the question comes FIRST, so
+      // the bar is out of the way and the words are already in hand when the
+      // crosshair appears. Nothing to remember and nothing to attach after.
+      bridge.send({ type: "snip", note: text, session: ask.session || "" });
+    } else {
+      bridge.send({ type: "url_answer", url: text, mode: ask.mode || "audio" });
+    }
     render();
     setCollapsed(true);
   }

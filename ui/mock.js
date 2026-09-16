@@ -27,6 +27,23 @@
       steps: [{ label: "Change: bigger box, no logo inside", state: "failed", note: "the wallet is $1.20" }] },
     { id: "s4", title: "Reading your recording", subtitle: "about a minute", status: "reading", progress: 0, eta: "listening and looking at what was on screen", live: true, actions: [], steps: [] },
   ];
+  // What GET /agentic/sessions?mine=true returns, one card per state the
+  // board can be in. `status_label`, `url` and `body` are the flattened
+  // fields the API lifts to the top level for a flat client.
+  const changeRows = scenario === "empty" ? [] : [
+    { id: "c1", title: "Toolbar: show my requested changes", status_label: "Running \u00b7 writing the code",
+      status: "running", progress: 0.55, eta: "about 4 min left", live: true, actions: [0],
+      url: "https://dev.advertisable.ai/preview/cai-412/",
+      body: "Add a My changes section to the bar, filtered to the token's own email." },
+    { id: "c2", title: "Fix presigned URLs on recreate", status_label: "PR open", status: "opened_pr",
+      actions: [], url: "https://github.com/APX-Solutions/alternative/pull/812",
+      body: "Presign the dict before the Pydantic model is built." },
+    { id: "c3", title: "Statics client review rides storyboard review", status_label: "Queued",
+      status: "queued", actions: [], body: "Waiting for a runner slot." },
+    { id: "c4", title: "Weekly report insights layer", status_label: "Failed", status: "failed",
+      actions: [0], body: "alembic: Can't locate revision identified by '9f2a1c'" },
+  ];
+
   window.__mock = (m) => {
     switch (m.type) {
       case "ready":
@@ -38,22 +55,32 @@
             { id: "storyboards", title: "Storyboards", symbol: "film", hasList: true, live: 5, watch: true,
               actions: [{ label: "Go", advance: false }, { label: "Retry", advance: false }, { label: "Dismiss" }],
               compose: { placeholder: "Change the plan, or ask for more", record: false } },
+            { id: "changes", title: "My changes", symbol: "hammer", hasList: true, live: 8,
+              feedback: true,
+              actions: [{ label: "Retry", advance: false }], compose: null },
             { id: "capture", title: "Capture", symbol: "square.and.pencil", hasList: false, actions: [],
               compose: { placeholder: "Idea, decision, ticket", record: true } },
           ],
           records: [{ mode: "audio", label: "Record audio" }, { mode: "screen", label: "Record screen and audio" }],
           ask: { placeholder: "Ask about clients, meetings, decisions" },
-          counts: { board: boardRows.length, storyboards: studioRows.length }, recording: rec });
+          counts: { board: boardRows.length, storyboards: studioRows.length,
+                    changes: changeRows.length }, recording: rec });
         if (scenario === "sent") setTimeout(() => send({ type: "sent" }), 400);
         if (scenario === "recording") setTimeout(() => window.__mock({ type: "record", mode: "audio" }), 50);
         // The app never opens the panel by itself, and neither does this.
         if (scenario === "open") send({ type: "expand" });
         break;
-      case "open": setTimeout(() => send({ type: "rows", section: m.section, rows: (m.section === "board" ? boardRows : m.section === "storyboards" ? studioRows : rows).slice() }), 350); break;
+      case "open": setTimeout(() => send({ type: "rows", section: m.section, rows: (m.section === "board" ? boardRows : m.section === "storyboards" ? studioRows : m.section === "changes" ? changeRows : rows).slice() }), 350); break;
       case "ask":
         setTimeout(() => send({ type: "answer",
           text: "Kupola Media asked for a two-day shoot in Ohrid with a drone unit [1]. Marko confirmed the 12th and 13th are open on their side [2], and the last quote sent was 4,800 EUR excluding travel [3].",
           citations: [{ n: 1, source: "gmail", title: "Re: Ohrid shoot — quote v2", url: "https://mail.google.com" }, { n: 2, source: "meeting", title: "Call with Marko, 3 Sep", url: "" }, { n: 3, source: "slack", title: "#sales · quote thread", url: "https://slack.com" }] }), 1100);
+        break;
+      case "snip":
+        // The real app hides the bar and hands over to the region picker. In
+        // the browser there is nothing to grab, so just say what was sent —
+        // enough to see that the note and the Skip both arrive.
+        send({ type: "toast", text: m.note ? `Screenshot + "${m.note}"` : "Screenshot, no note" });
         break;
       case "record":
         // The app asks where the recording is before it starts one, so this
