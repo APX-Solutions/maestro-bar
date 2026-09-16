@@ -40,6 +40,7 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
     private let api: API
     private let recorder: Recorder
     private var config = BarConfig.fallback
+    private var user = ""                 // whose token this is, once /me has said
 
     private var window: KeyPanel?
     private var web: BarWebView?
@@ -112,6 +113,22 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
         counts = [:]
         window?.sharingType = panelConfig.invisible ? .none : .readOnly
         if loaded { sendState() }
+        whoami()
+    }
+
+    /// Ask Maestro whose token this is. The page decides what that person may
+    /// see — the chevron and the panel behind it are not for everyone — so the
+    /// answer travels with the rest of the state. No API, a bad token, or no
+    /// network all mean "nobody", which is the safe answer.
+    private func whoami() {
+        user = ""
+        guard !config.api.isEmpty else { return }
+        api.get("/me") { [weak self] json, code in
+            guard let self = self else { return }
+            let name = (code == 200) ? ((json as? [String: Any])?["username"] as? String) ?? "" : ""
+            self.user = name.trimmingCharacters(in: .whitespacesAndNewlines).lowercased()
+            if self.loaded { self.sendState() }
+        }
     }
 
     func recordingChanged() {
@@ -308,6 +325,7 @@ final class PanelController: NSObject, NSWindowDelegate, WKScriptMessageHandler,
         var msg: [String: Any] = [
             "type": "state",
             "platform": "mac",
+            "user": user,
             "hotkey": PanelController.pretty(p.hotkey),
             "api": !config.api.isEmpty,
             "edge": onRight ? "right" : "left",
