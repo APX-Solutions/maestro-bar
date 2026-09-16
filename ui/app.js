@@ -340,12 +340,12 @@
         // sent with no words makes the model judge it alone; a sentence is
         // almost always worth the two seconds, and Skip is there for when it
         // is not.
-        const s = activeSection(), row = current();
-        state.askUrl = { kind: "snip", session: s && s.feedback && row ? row.id : "" };
-        setCollapsed(false);
-        render();
-        const input = $("#input");
-        if (input) { input.value = ""; input.focus(); }
+        //
+        // Never feedback from here. This camera used to borrow the open card's
+        // session whenever the section allowed feedback, so a screenshot taken
+        // while merely LOOKING at a card became a comment on it. Feedback is
+        // only ever what the Feedback button starts.
+        askSnip("");
       };
       acts.appendChild(b);
     }
@@ -500,13 +500,17 @@
         // wrong" means. So it is asked rather than assumed.
         if (b.dataset.open) { closeChoice(); return; }
         const menu = el("div", "fb-choice");
+        // Three ways, and every one of them is the ONLY way a session gets
+        // feedback: the camera on the strip never attaches one.
         [["audio", icons.mic, "Just talk"],
-         ["screen", icons.screen, "Show me"]].forEach(([mode, ico, label]) => {
+         ["screen", icons.screen, "Show me"],
+         ...(state.snip ? [["snip", icons.camera, "Snapshot"]] : [])].forEach(([mode, ico, label]) => {
           const c = el("button", "fb-opt", `${ico}<span>${label}</span>`);
           c.onclick = (ev) => {
             ev.stopPropagation();
             closeChoice();
-            bridge.send({ type: "record", mode, session: row.id });
+            if (mode === "snip") askSnip(row.id);
+            else bridge.send({ type: "record", mode, session: row.id });
           };
           menu.appendChild(c);
         });
@@ -601,6 +605,18 @@
     renderTools();
   }
 
+  /// Open the box that asks what a screenshot should show, then grab. With a
+  /// session the picture is feedback on that session; without one it is a
+  /// plain screenshot. Only the Feedback button ever passes a session.
+  function askSnip(session) {
+    if (state.askUrl) return;               // one question at a time
+    state.askUrl = { kind: "snip", session: session || "" };
+    setCollapsed(false);
+    render();
+    const input = $("#input");
+    if (input) { input.value = ""; input.focus(); }
+  }
+
   /// The box, while it is asking where a recording is: an address to paste,
   /// Send to record with it and Skip to record without.
   function renderUrlComposer() {
@@ -609,7 +625,8 @@
     // answer is optional in both and pressing on regardless is the point.
     const snip = state.askUrl && state.askUrl.kind === "snip";
     const ph = $("#ph");
-    ph.innerHTML = snip ? `<span>What should we look at?</span>` : `<span>https://…</span>`;
+    const fb = snip && !!state.askUrl.session;
+    ph.innerHTML = snip ? `<span>${fb ? "What is wrong with this session?" : "What should we look at?"}</span>` : `<span>https://…</span>`;
     ph.hidden = $("#input").value.length > 0;
     $("#input").disabled = false;
     $("#send").disabled = false;
