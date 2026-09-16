@@ -50,6 +50,14 @@ cp maestro-bar.json "$APP/Contents/Resources/maestro-bar.json"
 rm -rf "$APP/Contents/Resources/ui"
 cp -R ui "$APP/Contents/Resources/ui"
 
+# The app's own mark, for the Dock, Alt-Tab, Spotlight and Finder. Committed
+# rather than generated at build time: iconutil needs a Mac, and the icon is
+# artwork that changes about never — a build step that can only run on one
+# platform is a build step that eventually breaks on the other.
+if [ -f assets/MaestroBar.icns ]; then
+  cp assets/MaestroBar.icns "$APP/Contents/Resources/MaestroBar.icns"
+fi
+
 # --- ffmpeg, inside the bundle ----------------------------------------------
 # Audio needs it; screen capture does not. Shipping it here is what makes audio
 # work for someone who installed by dragging the app out of the DMG and has
@@ -92,6 +100,7 @@ cat > "$APP/Contents/Info.plist" <<PLIST
   <key>CFBundlePackageType</key><string>APPL</string>
   <key>CFBundleShortVersionString</key><string>$VERSION</string>
   <key>CFBundleVersion</key><string>$BUILD</string>
+  <key>CFBundleIconFile</key><string>MaestroBar</string>
   <key>LSMinimumSystemVersion</key><string>12.0</string>
   <key>LSUIElement</key><true/>
   <key>NSMicrophoneUsageDescription</key>
