@@ -21,7 +21,7 @@ set -uo pipefail
 
 FILE="${1:?usage: send.sh <file> [client]}"
 CLIENT="${2:-}"
-API="${MAESTRO_API:-https://maestro-agent.duckdns.org}"
+API="${MAESTRO_API:-https://maestro-api.advertisable.ai}"
 UNSENT="$HOME/Recordings/unsent-media"
 BASE="$(basename "$FILE")"
 

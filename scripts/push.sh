@@ -11,7 +11,7 @@ HERE="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
 FILE="${1:?usage: push.sh <file> [client]}"
 CLIENT="${2:-}"
-API="${MAESTRO_API:-https://maestro-agent.duckdns.org}"
+API="${MAESTRO_API:-https://maestro-api.advertisable.ai}"
 BASE="$(basename "${FILE%.*}")"
 TXT="${FILE%.*}.txt"
 UNSENT="$HOME/Recordings/unsent"
