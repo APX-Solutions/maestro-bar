@@ -100,8 +100,11 @@ final class Recorder {
         return nil
     }
 
+    /// `display` is the `screencapture -D` number. Nil, for a screen recording
+    /// with more than one display, asks which one first (ScreenPicker) and
+    /// comes back here with the answer.
     func start(mode: String, client: String?, config: BarConfig,
-               pageURL: String = "", note: String = "") {
+               pageURL: String = "", note: String = "", display: Int? = nil) {
         guard !isRecording else { return }
         if mode != "screen", Recorder.ffmpegPath() == nil {
             // The app ships its own ffmpeg, so reaching here means the copy
@@ -146,6 +149,17 @@ final class Recorder {
             return
         }
 
+        // After the permission check, so nobody picks a screen only to be told
+        // it cannot be recorded.
+        if mode == "screen", display == nil, NSScreen.screens.count > 1 {
+            ScreenPicker.pick { [weak self] d in
+                guard let d = d else { return }          // Esc: never mind
+                self?.start(mode: mode, client: client, config: config,
+                            pageURL: pageURL, note: note, display: d)
+            }
+            return
+        }
+
         self.config = config
         self.client = client
         self.mode = mode
@@ -184,7 +198,10 @@ final class Recorder {
         // reaches ffmpeg itself. A login shell is used so Homebrew is on PATH.
         let cmd: String
         if mode == "screen" {
-            cmd = "exec screencapture -v -g -k \(shellQuote(out.path))"
+            // -D: without it screencapture takes the main display, wherever
+            // the work is.
+            let d = display.map { "-D \($0) " } ?? ""
+            cmd = "exec screencapture -v -g -k \(d)\(shellQuote(out.path))"
         } else {
             cmd = "exec \(Recorder.ffmpegPath() ?? "ffmpeg") -hide_banner -loglevel error"
                 + " -f avfoundation -i \(shellQuote(":" + config.audioDevice))"
