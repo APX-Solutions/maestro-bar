@@ -135,12 +135,14 @@ final class AppDelegate: NSObject, NSApplicationDelegate, NSMenuDelegate {
 
     // MARK: - screen recording, asked for at a sensible moment
 
-    /// Every update is a different app to macOS. The bundle is signed ad hoc,
-    /// so its identity changes with the code, and `update.sh` clears the old
-    /// grant on purpose: a stale one shows as ON in System Settings while
-    /// capture still fails, which is the worst of both.
+    /// Builds signed with the Maestro Bar certificate keep their grant across
+    /// updates, and then this returns at the preflight. When the signature
+    /// changes — an ad-hoc build, or the move onto the certificate — macOS sees
+    /// a different app, and `update.sh` clears the old grant on purpose: a
+    /// stale one shows as ON in System Settings while capture still fails,
+    /// which is the worst of both.
     ///
-    /// The cost of that honesty is one grant per update. This makes it happen
+    /// The cost of that honesty is one grant per such update. This makes it happen
     /// at the only predictable moment — once, at launch, right after the
     /// update — instead of ambushing someone the first time they reach for a
     /// recording. It also puts the app in the Settings list straight away,

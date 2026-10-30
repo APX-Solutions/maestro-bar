@@ -58,6 +58,34 @@ if [ -f assets/MaestroBar.icns ]; then
   cp assets/MaestroBar.icns "$APP/Contents/Resources/MaestroBar.icns"
 fi
 
+# --- signing ------------------------------------------------------------------
+# With the certificate from make-signing-cert.sh, macOS knows the app by its
+# bundle id and that certificate, so a permission granted once outlives every
+# rebuild and update. Ad hoc, it knows the app by the hash of its code: each
+# build is a new app, System Settings keeps showing the old grant as ON, and
+# the app asks again anyway.
+SIGN_NAME="MaestroBar Code Signing"
+SIGN_KC="$HOME/.maestro/signing.keychain-db"
+SIGN_PASS="$HOME/.maestro/signing.pass"
+SIGN_ARGS=(--sign -)
+if [ -f "$SIGN_KC" ] && [ -f "$SIGN_PASS" ]; then
+  # codesign only looks in keychains on the search list, so this one joins it
+  # for the length of the build and the list is put back as it was found.
+  KEYCHAINS=()
+  while IFS= read -r k; do
+    k="${k//\"/}"; k="${k#"${k%%[![:space:]]*}"}"
+    [ -n "$k" ] && [ "$k" != "$SIGN_KC" ] && KEYCHAINS+=("$k")
+  done < <(security list-keychains -d user)
+  trap 'security list-keychains -d user -s ${KEYCHAINS[@]+"${KEYCHAINS[@]}"}' EXIT
+  security list-keychains -d user -s ${KEYCHAINS[@]+"${KEYCHAINS[@]}"} "$SIGN_KC"
+  security unlock-keychain -p "$(cat "$SIGN_PASS")" "$SIGN_KC"
+  SIGN_ARGS=(--keychain "$SIGN_KC" --sign "$SIGN_NAME")
+  echo "==> Signing as \"$SIGN_NAME\""
+else
+  echo "==> No signing certificate — signing ad hoc, so this build will ask for"
+  echo "    permissions again. ./make-signing-cert.sh once stops that."
+fi
+
 # --- ffmpeg, inside the bundle ----------------------------------------------
 # Audio needs it; screen capture does not. Shipping it here is what makes audio
 # work for someone who installed by dragging the app out of the DMG and has
@@ -82,7 +110,7 @@ if [ -x vendor/ffmpeg ]; then
     chmod +x "$APP/Contents/MacOS/ffmpeg"
     # Signed before the app: a nested executable needs its own signature, and
     # signing the bundle does not reach inside for it.
-    codesign --force --sign - "$APP/Contents/MacOS/ffmpeg" >/dev/null 2>&1 || \
+    codesign --force "${SIGN_ARGS[@]}" "$APP/Contents/MacOS/ffmpeg" >/dev/null 2>&1 || \
       echo "note: could not sign the bundled ffmpeg"
     echo "==> Bundled ffmpeg ($(du -h vendor/ffmpeg | cut -f1))"
   fi
@@ -109,10 +137,12 @@ cat > "$APP/Contents/Info.plist" <<PLIST
 </plist>
 PLIST
 
-# Ad hoc signature with a fixed identifier keeps the privacy permissions
-# attached to the same app across rebuilds more often than an unsigned binary.
-codesign --force --sign - --identifier "$BUNDLE_ID" "$APP" >/dev/null 2>&1 || \
+# Last, after everything inside the bundle is in place: anything copied in
+# afterwards breaks the signature, and the permissions with it.
+codesign --force "${SIGN_ARGS[@]}" --identifier "$BUNDLE_ID" "$APP" >/dev/null 2>&1 || \
   echo "note: could not sign; the app still runs, permissions may re-prompt"
+codesign -d -r- "$APP" 2>&1 | grep -q 'certificate leaf' || \
+  echo "note: signed ad hoc — macOS will ask for permissions again after this build"
 
 echo "==> Built $(pwd)/$APP"
 

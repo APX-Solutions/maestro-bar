@@ -55,6 +55,9 @@ M=$(hdiutil attach "$tmp/MaestroBar.dmg" -nobrowse -mountrandom /tmp 2>/dev/null
   die "that build is incomplete (no ffmpeg). Nothing was changed — tell Aleksandar."
 }
 
+# Who macOS thinks the installed app is, read before it is replaced.
+was=$(codesign -d -r- "$APP" 2>&1 | grep '^designated')
+
 osascript -e 'quit app "MaestroBar"' >/dev/null 2>&1
 sleep 2
 pkill -x MaestroBar 2>/dev/null
@@ -65,33 +68,41 @@ hdiutil detach "$M" -quiet 2>/dev/null
 
 xattr -dr com.apple.quarantine "$APP" 2>/dev/null
 
-# Clear the screen-recording decision, even though this is an upgrade.
+# Keep the permissions when the app is still the same app to macOS, clear them
+# when it is not.
 #
-# The instinct is to preserve it, and that was the first version of this script.
-# It is wrong while the app is ad-hoc signed: macOS identifies it by cdhash,
-# every build has a different one, and the old entry therefore authorises an app
-# that no longer exists. What the person sees is the worst of both — System
-# Settings showing Maestro Bar already switched ON, and the app asking for
-# permission anyway, with the toggle doing nothing because it is already on.
-#
-# Resetting turns that dead end into one honest prompt. It costs an allow and a
-# restart per update, which is the real price of ad-hoc signing; a Developer ID
-# certificate is what removes it, not this line.
-tccutil reset ScreenCapture com.carbonbox.maestrobar >/dev/null 2>&1
+# macOS ties each grant to the app's designated requirement. Builds signed with
+# the Maestro Bar certificate all share one, so their grants carry over. An
+# ad-hoc build's requirement is the hash of its code, which every build changes:
+# the old entry then authorises an app that no longer exists, and what the
+# person sees is the worst of both — System Settings showing Maestro Bar already
+# switched ON, and the app asking anyway, with the toggle doing nothing because
+# it is already on. Resetting turns that dead end into one honest prompt.
+moved=0
+if [ "$was" != "$(codesign -d -r- "$APP" 2>&1 | grep '^designated')" ]; then
+  moved=1
+  tccutil reset ScreenCapture com.carbonbox.maestrobar >/dev/null 2>&1
+  tccutil reset Microphone com.carbonbox.maestrobar >/dev/null 2>&1
+fi
 
 now=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist" 2>/dev/null)
 open "$APP" || die "updated, but could not start it — open Maestro Bar from Applications"
+
+if [ "$moved" = 0 ]; then
+  printf "\n  Updated to %s. Maestro Bar is running again, permissions kept.\n\n" "${now:-the latest build}"
+  exit 0
+fi
 
 cat <<EOF
 
   Updated to ${now:-the latest build}. Maestro Bar is running again.
 
-  Screen recording will ask permission once more. That is expected on every
-  update — macOS sees each new build as a different app — so:
+  This build is signed differently from the one it replaced, so macOS asks for
+  permission one more time:
 
-    1. Press Ctrl+Alt+S, and allow the permission macOS asks for.
-    2. QUIT Maestro Bar and open it again.
+    1. Allow screen recording when macOS asks (or press Ctrl+Alt+S).
+    2. Allow the microphone the first time you record audio.
 
-  Audio recording (Ctrl+Alt+R) needs none of that and works right now.
+  Maestro Bar restarts itself once screen recording is allowed.
 
 EOF
