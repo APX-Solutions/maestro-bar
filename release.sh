@@ -30,6 +30,14 @@ fi
 ./build.sh dmg
 [ -f MaestroBar.dmg ] || { echo "STOP: no dmg was produced"; exit 1; }
 
+# Every release signed by the same certificate is what lets everyone's update
+# keep their permissions. One ad-hoc release and each of them is asked again.
+codesign -d -r- MaestroBar.app 2>&1 | grep -q 'certificate leaf' || {
+  echo "STOP: the build is signed ad hoc. Run ./make-signing-cert.sh (or copy"
+  echo "      ~/.maestro/signing.* from the Mac that has them) and release again."
+  exit 1
+}
+
 # The check update.sh makes, made here too — so a broken build is caught before
 # it reaches anyone rather than after.
 M=$(hdiutil attach MaestroBar.dmg -nobrowse -mountrandom /tmp | grep -o '/private/tmp/dmg\.[A-Za-z0-9]*' | tail -1)

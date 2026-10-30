@@ -62,9 +62,11 @@ hdiutil detach "$M" -quiet 2>/dev/null
 # The quarantine flag is the only reason dragging an app out of a dmg shows the
 # scary blocked dialog; removing it is what "Open Anyway" does, three clicks in.
 xattr -dr com.apple.quarantine "$APP" 2>/dev/null
-# Fresh install only: clear any screen-recording decision left by an older copy,
-# so the prompt actually appears instead of macOS silently remembering a "no".
+# Fresh install only: clear any screen-recording or microphone decision left by
+# an older copy, so the prompt actually appears instead of macOS silently
+# remembering a "no", or a grant for a build that no longer exists.
 tccutil reset ScreenCapture com.carbonbox.maestrobar >/dev/null 2>&1
+tccutil reset Microphone com.carbonbox.maestrobar >/dev/null 2>&1
 
 v=$(/usr/libexec/PlistBuddy -c "Print :CFBundleShortVersionString" "$APP/Contents/Info.plist" 2>/dev/null)
 open "$APP" || die "installed, but could not start it — open Maestro Bar from $DEST"
