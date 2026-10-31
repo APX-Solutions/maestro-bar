@@ -1,6 +1,6 @@
 {
   "title_idle": "M",
-  "api": "https://maestro-agent.duckdns.org",
+  "api": "https://maestro-api.advertisable.ai",
   "token_service": "maestro-token",
   "audio_device": "0",
   "out_dir": "~/Recordings",
